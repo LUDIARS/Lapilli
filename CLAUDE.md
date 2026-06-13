@@ -12,6 +12,7 @@ LUDIARS 小型共有ツール集。略称 **La**。
 | パッケージ | 説明 |
 |---|---|
 | `@ludiars/encrypted-config` | AES-256-GCM + scrypt によるローカル暗号化 config |
+| `@ludiars/llm-gateway` | LLM トークン節約の request 整形 (prefix-cache 順序付け / ローリング要約 / tier ルーティング)。transport 非依存 |
 
 ## branch 運用
 

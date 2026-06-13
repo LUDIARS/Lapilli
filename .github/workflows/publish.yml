@@ -23,6 +23,20 @@ jobs:
           scope: '@ludiars'
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r run build
-      - run: pnpm -r --filter './packages/*' publish --no-git-checks
+      # 未公開バージョンのパッケージだけ publish する (既公開は skip)。
+      # 全パッケージ一括 publish だと、 既に publish 済みの版で 409 になりジョブが落ちるため。
+      - name: Publish unpublished packages
+        run: |
+          for dir in packages/*/; do
+            [ -f "$dir/package.json" ] || continue
+            name=$(node -p "require('./$dir/package.json').name")
+            version=$(node -p "require('./$dir/package.json').version")
+            if npm view "$name@$version" version --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
+              echo "skip $name@$version (already published)"
+            else
+              echo "publish $name@$version"
+              (cd "$dir" && pnpm publish --no-git-checks)
+            fi
+          done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
