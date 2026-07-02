@@ -13,6 +13,7 @@ LUDIARS 小型共有ツール集。略称 **La**。
 |---|---|
 | `@ludiars/encrypted-config` | AES-256-GCM + scrypt によるローカル暗号化 config |
 | `@ludiars/llm-gateway` | LLM トークン節約の request 整形 (prefix-cache 順序付け / ローリング要約 / tier ルーティング)。transport 非依存 |
+| `@ludiars/blackbox` | 成長型ブラックボックス (LLM 判断→ルール昇格→LLM 卒業)。影評価で人間クリック無しでも学習が前進。SQLite/インメモリ両対応 |
 
 ## branch 運用
 
