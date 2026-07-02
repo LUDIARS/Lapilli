@@ -1,6 +1,6 @@
 {
   "name": "@ludiars/blackbox",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Growth-type black box: LLM-first decisions distilled into serializable rules that graduate from the LLM (LUDIARS)",
   "type": "module",
   "main": "dist/index.js",
@@ -9,6 +9,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./file": {
+      "import": "./dist/store-jsonfile.js",
+      "types": "./dist/store-jsonfile.d.ts"
     }
   },
   "files": ["dist"],
