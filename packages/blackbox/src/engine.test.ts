@@ -158,6 +158,20 @@ describe('BlackBoxEngine 学習ループ', () => {
     expect(ledger.listPending('d')).toHaveLength(0);
   });
 
+  it('addRule は state:undefined のキーが来ても manual→trial / seed→auto の既定を保つ', () => {
+    const { engine } = makeEngine();
+    const manual = engine.addRule({
+      domain: 'd', description: 'm', when: COND_RAIN, output: { rain: true },
+      state: undefined, source: 'manual',
+    });
+    expect(manual.state).toBe('trial');
+    const seed = engine.addRule({
+      domain: 'd2', description: 's', when: COND_RAIN, output: { rain: true },
+      state: undefined, source: 'seed',
+    });
+    expect(seed.state).toBe('auto');
+  });
+
   it('条件が成立しない判断では影評価は動かない', async () => {
     const { engine, rules } = makeEngine();
     const counter = { calls: 0 };
