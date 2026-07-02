@@ -196,7 +196,9 @@ export class BlackBoxEngine {
 
   /** 手動 / 採掘でルールを追加する。 manual は trial から始まる (人間直書きでも実地検証は踏む)。 */
   addRule(draft: RuleDraft): Rule {
-    return this.rules.insert({ state: draft.source === 'seed' ? 'auto' : 'trial', ...draft });
+    // draft.state が undefined のキー付きで来ても既定を潰さないよう明示的に解決する。
+    const state = draft.state ?? (draft.source === 'seed' ? 'auto' : 'trial');
+    return this.rules.insert({ ...draft, state });
   }
 
   /** ルールの状態を手動で変更する (UI からの昇格 / 撤回 / 復活)。 */
