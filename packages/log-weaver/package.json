@@ -1,0 +1,37 @@
+{
+  "name": "@ludiars/log-weaver",
+  "version": "0.1.0",
+  "description": "Runtime stability probes injected AOP-style (safety net / lag / guards / child watch), emitting Vestigium-compatible JSONL events (LUDIARS)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./auto": {
+      "import": "./dist/auto.js",
+      "types": "./dist/auto.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --pool=threads"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LUDIARS/Lapilli.git",
+    "directory": "packages/log-weaver"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
