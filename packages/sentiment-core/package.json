@@ -1,0 +1,42 @@
+{
+  "name": "@ludiars/sentiment-core",
+  "version": "0.1.0",
+  "description": "Deterministic 20-dimensional game sentiment primitives shared by Discutere and Voluptas",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "data",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LUDIARS/Lapilli.git",
+    "directory": "packages/sentiment-core"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
