@@ -7,7 +7,7 @@
 
 import 例:
 ```ts
-import { setConfig, readConfig, encryptJson, type StoreOptions } from '@ludiars/encrypted-config';
+import { setConfig, readConfigStrict, encryptJson, type StoreOptions } from '@ludiars/encrypted-config';
 ```
 
 ---
@@ -39,8 +39,11 @@ function resolveMasterSecret(opts: StoreOptions, env?: NodeJS.ProcessEnv): strin
 function readConfigFile(opts: StoreOptions, env?: NodeJS.ProcessEnv): ConfigFile;
 function writeConfigFile(cfg: ConfigFile, opts: StoreOptions, env?: NodeJS.ProcessEnv): void;
 function readConfig(opts: StoreOptions, env?: NodeJS.ProcessEnv): ResolvedConfig | null;
+function readConfigStrict(opts: StoreOptions, env?: NodeJS.ProcessEnv): ResolvedConfig;
 function setConfig(key: string, value: string, opts: StoreOptions, env?: NodeJS.ProcessEnv): void;
 function deleteConfig(key: string, opts: StoreOptions, env?: NodeJS.ProcessEnv): void;
+
+class ConfigStoreError extends Error {}
 ```
 
 型:
@@ -71,10 +74,13 @@ interface StoreOptions {
 | `readConfigFile` | 生の `ConfigFile`。未存在 / 破損で `{ plain:{}, secrets:{} }`。 |
 | `writeConfigFile` | ファイルへ 2-space JSON + 末尾改行で書き込み (親 dir を mkdir)。 |
 | `readConfig` | 復号済み平文 map。**ファイル未存在で `null`**。復号失敗キーは skip。 |
+| `readConfigStrict` | 復号済み平文 map。欠落・JSON/構造/値型の不正・同一キーの二重配置・blob 不正・復号失敗では `ConfigStoreError` を throw。 |
 | `setConfig` | 1 キーを書き込み (secretKeys なら暗号化)。逆側分類から delete。 |
 | `deleteConfig` | 1 キーを plain/secrets 双方から除去。 |
 
 - `env` 引数は省略時 `process.env`。テストや明示注入のため第 N 引数で渡せる。
+- 起動に必須の設定は `readConfigStrict` を使用する。従来互換の `readConfig` は部分設定を
+  許容するため、必須設定の検証には使用しない。
 
 ## 関連
 

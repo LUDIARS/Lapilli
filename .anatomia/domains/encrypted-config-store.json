@@ -1,0 +1,24 @@
+{
+  "name": "encrypted-config-store",
+  "description": "暗号化されたローカル設定ファイルを fail-closed で読み出す境界。",
+  "presetRules": [],
+  "membership": [
+    {
+      "pathPattern": "(^|/)packages/encrypted-config/src/store\\.ts$"
+    }
+  ],
+  "templateRules": [],
+  "cardTemplate": "encrypted-config-store",
+  "source": "spec-draft",
+  "mechanics": [
+    "encrypted-config-strict-read",
+    "encrypted-config-decryption"
+  ],
+  "specRefs": [
+    "spec/feature/encrypted-config-store.md",
+    "spec/interface/encrypted-config.md",
+    "spec/data/encrypted-config-store.md"
+  ],
+  "rationale": "設定ファイルの欠落・破損・復号不能を明示的に検出して、部分設定でサービスを起動させない。",
+  "updatedAt": "2026-08-08T00:00:00.000Z"
+}

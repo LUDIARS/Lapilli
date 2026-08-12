@@ -28,6 +28,11 @@ consumer は `StoreOptions` (どのキーがシークletか、env 変数名、�
   - ファイル未存在 → `null`。
   - 存在 → `plain` をそのまま、`secrets` を復号して 1 つの平文 map に統合して返す。
   - 復号失敗キー (master 鍵変更 / 改竄) は skip され結果に含まれない。
+- **必須設定の読み出し** `readConfigStrict(opts, env?)`
+  - ファイル未存在、JSON/構造/値型の不正、暗号 blob 不正、復号失敗を
+    `ConfigStoreError` として throw する。
+  - 同じキーが `plain` / `secrets` の両方にある場合も不正として throw する。
+  - 起動を成立させる設定にはこちらを使用し、部分的な値だけでの起動を防ぐ。
 - **削除** `deleteConfig(key, opts, env?)` — `plain` / `secrets` 双方から該当キーを除去。
 - **低レベル** `readConfigFile` / `writeConfigFile` は復号せず生の `ConfigFile` 構造を扱う。
 
@@ -36,6 +41,8 @@ consumer は `StoreOptions` (どのキーがシークletか、env 変数名、�
 - 値は文字列前提 (`ResolvedConfig = Record<string, string>`)。複雑な構造は consumer が
   serialize する。
 - master secret を失う / 変えると既存シークレットは復元不能 (silently skip)。
+- `readConfig` の silently skip は既存 consumer との後方互換である。必須設定を扱う
+  consumer は `readConfigStrict` を選び、原因を明示して停止する。
 - ファイルロックは無い。並行プロセスからの同時書き込みは consumer 側で避ける。
 - マシン束縛フォールバック (`prefix:hostname:user`) はマシン移行で鍵が変わる点に注意。
 

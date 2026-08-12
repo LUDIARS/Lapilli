@@ -31,8 +31,11 @@
 
 - あるキーが `plain` と `secrets` の両方に同時に存在することはない。
   `setConfig` はキーを分類変更した際、もう一方の側から `delete` する。
+  `readConfigStrict` は二重配置を破損として拒否する。
 - 破損 / パース失敗時は `{ plain: {}, secrets: {} }` (空 config) として扱う
   (throw しない)。
+  `readConfigStrict` はこの寛容な低レベル読み出しを使用せず、破損を
+  `ConfigStoreError` として報告する。
 
 ## 3. 暗号化 blob 構造 (`EncryptedBlob`)
 
@@ -67,6 +70,8 @@ scrypt 派生 (32 byte)。
 - 実際の AES 鍵 = `scryptSync(masterSecret, salt, 32)` (blob ごとの salt を使用)。
 - master secret が変わると既存 `secrets` は復号できなくなる。`readConfig` は
   復号失敗キーを silently skip する (例外を伝播させない)。
+- `readConfigStrict` は復号失敗を silently skip せず、該当キーを含む
+  `ConfigStoreError` を throw する。
 
 ## 5. バージョニング / マイグレーション
 

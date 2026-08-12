@@ -27,6 +27,16 @@ export interface ConfigFile {
 /** 全 config を平文 map として返す型。 */
 export type ResolvedConfig = Record<string, string>;
 
+/**
+ * strict 読み込み時に config の欠落・破損・復号不能を示すエラー。
+ *
+ * 通常の readConfig は既存サービスとの後方互換のため部分的に読めるが、
+ * 起動に必要な config には readConfigStrict を使って fail-closed にする。
+ */
+export class ConfigStoreError extends Error {
+  override name = 'ConfigStoreError';
+}
+
 /** ストアのオプション。 */
 export interface StoreOptions {
   /** 暗号化保存するキーの Set。それ以外は plain に保存。 */
@@ -95,6 +105,68 @@ export function readConfig(opts: StoreOptions, env: NodeJS.ProcessEnv = process.
     }
   }
   return out;
+}
+
+/**
+ * 全 config を厳密に読み込む。
+ *
+ * 起動に必要な設定では、欠落・JSON 破損・型不正・暗号文破損・復号失敗を
+ * すべてエラーにし、部分的な設定で起動しない。
+ */
+export function readConfigStrict(opts: StoreOptions, env: NodeJS.ProcessEnv = process.env): ResolvedConfig {
+  const path = resolveConfigPath(opts, env);
+  if (!existsSync(path)) {
+    throw new ConfigStoreError('Encrypted config file is missing');
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    throw new ConfigStoreError('Encrypted config file is not valid JSON');
+  }
+
+  if (!isRecord(parsed) || !isRecord(parsed.plain) || !isRecord(parsed.secrets)) {
+    throw new ConfigStoreError('Encrypted config file has an invalid structure');
+  }
+
+  const out: ResolvedConfig = {};
+  for (const [key, value] of Object.entries(parsed.plain)) {
+    if (typeof value !== 'string') {
+      throw new ConfigStoreError(`Encrypted config plain value is not a string: ${key}`);
+    }
+    setOwnStringValue(out, key, value);
+  }
+
+  const masterSecret = resolveMasterSecret(opts, env);
+  for (const [key, blob] of Object.entries(parsed.secrets)) {
+    if (Object.prototype.hasOwnProperty.call(out, key)) {
+      throw new ConfigStoreError(`Encrypted config key is present in both plain and secrets: ${key}`);
+    }
+    if (!isEncryptedBlob(blob) || typeof blob.iv !== 'string' || typeof blob.tag !== 'string') {
+      throw new ConfigStoreError(`Encrypted config secret has an invalid encrypted blob: ${key}`);
+    }
+    try {
+      const value = decryptJson<unknown>(blob, masterSecret);
+      if (typeof value !== 'string') {
+        throw new ConfigStoreError(`Encrypted config secret value is not a string: ${key}`);
+      }
+      setOwnStringValue(out, key, value);
+    } catch (error) {
+      if (error instanceof ConfigStoreError) throw error;
+      throw new ConfigStoreError(`Encrypted config secret could not be decrypted: ${key}`);
+    }
+  }
+  return out;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** 任意の設定キーを own property として安全に保存する。 */
+function setOwnStringValue(config: ResolvedConfig, key: string, value: string): void {
+  Object.defineProperty(config, key, { value, enumerable: true, writable: true, configurable: true });
 }
 
 /** 1 キーを config ファイルに書く。secretKeys に含まれれば暗号化、それ以外は平文。 */

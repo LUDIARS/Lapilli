@@ -9,6 +9,8 @@ import {
   readConfigFile,
   writeConfigFile,
   readConfig,
+  readConfigStrict,
+  ConfigStoreError,
   setConfig,
   deleteConfig,
   type StoreOptions,
@@ -121,6 +123,70 @@ describe('readConfig', () => {
     const env = makeEnv(tmpDir);
     env['TEST_CONFIG_PATH'] = join(tmpDir, 'nonexistent.json');
     expect(readConfig(opts, env)).toBeNull();
+  });
+});
+
+describe('readConfigStrict', () => {
+  it('fails closed when the config file is missing', () => {
+    const opts = makeOpts(tmpDir);
+    const env = makeEnv(tmpDir);
+    env['TEST_CONFIG_PATH'] = join(tmpDir, 'nonexistent.json');
+    expect(() => readConfigStrict(opts, env)).toThrow(ConfigStoreError);
+  });
+
+  it('returns both plain and decrypted secret values', () => {
+    const opts = makeOpts(tmpDir);
+    const env = makeEnv(tmpDir);
+    setConfig('PLAIN', 'pval', opts, env);
+    setConfig('SECRET', 'sval', opts, env);
+    expect(readConfigStrict(opts, env)).toEqual({ PLAIN: 'pval', SECRET: 'sval' });
+  });
+
+  it('fails closed when an encrypted secret cannot be decrypted', () => {
+    const opts = makeOpts(tmpDir);
+    const env = makeEnv(tmpDir);
+    setConfig('SECRET', 'sval', opts, env);
+    expect(() => readConfigStrict(opts, { ...env, TEST_MASTER_KEY: 'wrong-master-key' })).toThrow(
+      'Encrypted config secret could not be decrypted: SECRET',
+    );
+  });
+
+  it('fails closed when a plain value is not a string', () => {
+    const opts = makeOpts(tmpDir);
+    const env = makeEnv(tmpDir);
+    writeFileSync(env['TEST_CONFIG_PATH']!, JSON.stringify({ plain: { PORT: 4230 }, secrets: {} }));
+    expect(() => readConfigStrict(opts, env)).toThrow('Encrypted config plain value is not a string: PORT');
+  });
+
+  it('fails closed when a secret blob is missing required fields', () => {
+    const opts = makeOpts(tmpDir);
+    const env = makeEnv(tmpDir);
+    writeFileSync(
+      env['TEST_CONFIG_PATH']!,
+      JSON.stringify({ plain: {}, secrets: { SECRET: { v: 1, salt: 'x', data: 'x' } } }),
+    );
+    expect(() => readConfigStrict(opts, env)).toThrow('Encrypted config secret has an invalid encrypted blob: SECRET');
+  });
+
+  it('fails closed when a key appears in both config sections', () => {
+    const opts = makeOpts(tmpDir);
+    const env = makeEnv(tmpDir);
+    const blob = encryptJson('sval', MASTER);
+    writeFileSync(
+      env['TEST_CONFIG_PATH']!,
+      JSON.stringify({ plain: { KEY: 'pval' }, secrets: { KEY: blob } }),
+    );
+    expect(() => readConfigStrict(opts, env)).toThrow('Encrypted config key is present in both plain and secrets: KEY');
+  });
+
+  it('keeps special property names as own config keys', () => {
+    const opts = makeOpts(tmpDir);
+    const env = makeEnv(tmpDir);
+    writeFileSync(env['TEST_CONFIG_PATH']!, '{"plain":{"__proto__":"safe"},"secrets":{}}');
+    const config = readConfigStrict(opts, env);
+    expect(Object.getPrototypeOf(config)).toBe(Object.prototype);
+    expect(Object.prototype.hasOwnProperty.call(config, '__proto__')).toBe(true);
+    expect(config['__proto__']).toBe('safe');
   });
 });
 
