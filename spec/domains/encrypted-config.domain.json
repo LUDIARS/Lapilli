@@ -1,0 +1,11 @@
+{
+  "name": "encrypted-config",
+  "description": "暗号化設定。 秘匿値を含む設定の保存と読み出し。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [
+    {
+      "pathPattern": "(^|/)packages/encrypted-config/(?:.*/)?[^/]+$"
+    }
+  ]
+}

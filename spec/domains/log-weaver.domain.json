@@ -1,0 +1,11 @@
+{
+  "name": "log-weaver",
+  "description": "ログの織り込み。 複数ソースのログを 1 本の流れに束ねる。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [
+    {
+      "pathPattern": "(^|/)packages/log-weaver/(?:.*/)?[^/]+$"
+    }
+  ]
+}

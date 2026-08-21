@@ -1,0 +1,11 @@
+{
+  "name": "blackbox-learning",
+  "description": "学習型判断 (blackbox)。 特徴量から判断を返す仕組みと、 その学習・評価。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [
+    {
+      "pathPattern": "(^|/)packages/blackbox/(?:.*/)?[^/]+$"
+    }
+  ]
+}

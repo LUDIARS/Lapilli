@@ -1,0 +1,17 @@
+{
+  "name": "workspace-tooling",
+  "description": "ワークスペースの土台。 ビルド定義と共通設定。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [
+    {
+      "pathPattern": "^(?:package\\.json|pnpm-lock\\.yaml|pnpm-workspace\\.yaml|tsconfig\\.base\\.json)$"
+    },
+    {
+      "pathPattern": "^\\.github/workflows/(?:.*/)?[^/]+$"
+    },
+    {
+      "pathPattern": "(^|/)tests?/(?:.*/)?[^/]+$"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "llm-gateway",
+  "description": "LLM 呼び出しの共通境界。 プロバイダ差を吸収し、 呼び出しを一本化する。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [
+    {
+      "pathPattern": "(^|/)packages/llm-gateway/(?:.*/)?[^/]+$"
+    }
+  ]
+}

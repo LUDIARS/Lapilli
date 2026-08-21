@@ -1,0 +1,11 @@
+{
+  "name": "shared-memory",
+  "description": "共有メモリ層。 セッション横断で参照する記憶の保持。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [
+    {
+      "pathPattern": "(^|/)packages/memory/(?:.*/)?[^/]+$"
+    }
+  ]
+}
