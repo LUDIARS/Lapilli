@@ -1,0 +1,24 @@
+{
+  "name": "mail-inbox",
+  "description": "Gmail 読み取り API を取得・MIME パースする共有メール受信境界。",
+  "presetRules": [],
+  "membership": [
+    {
+      "pathPattern": "(^|/)packages/mail-inbox/(?:.*/)?[^/]+$"
+    }
+  ],
+  "templateRules": [],
+  "cardTemplate": "mail-inbox",
+  "source": "spec-draft",
+  "mechanics": [
+    "gmail-readonly",
+    "mime-payload-parsing",
+    "oauth-refresh-token"
+  ],
+  "specRefs": [
+    "spec/interface/mail-inbox.md",
+    "spec/feature/mail-inbox-gmail.md"
+  ],
+  "rationale": "メールの取得と本文・添付の抽出だけを共有し、分類・保存・既読化を利用側から分離する。",
+  "updatedAt": "2026-09-01T00:00:00.000Z"
+}
