@@ -9,7 +9,7 @@ Lapilli は pnpm workspaces の monorepo。ルートから全パッケージを�
 
 ## 前提
 
-- Node.js 22 (publish CI が `node-version: '22'`)。
+- Node.js 22.12 以上 (Vite 8 の Node 22 向け最低要件。publish CI は `node-version: '22'`)。
 - pnpm 9 (publish CI が `pnpm/action-setup@v4` version 9)。
 - workspace は `packages/*` (`pnpm-workspace.yaml`)。
 
