@@ -19,6 +19,8 @@ import {
 - `parseGmailPayload` は Gmail の MIME payload から plain text、HTML、添付メタデータを取り出す。
 - `MailMessage.html` は元メールの未加工 HTML であり、安全化済みではない。利用側は表示前にサニタイズする。
 - `MailInboxError.kind` は `auth` / `rate_limit` / `not_found` / `network` / `invalid_response` のいずれかである。
+- `MailSource.history(startHistoryId, opts)` は履歴変更と安全に進められる history ID を返す。履歴失効時は例外ではなく `expired: true` を返す。
+- `MailSource.watch(opts)` は Gmail watch を登録し、epoch ミリ秒の expiration を `Date` に正規化して返す。`stopWatch()` は登録を解除し、`currentHistoryId()` は初期同期の基準 ID を返す。
 
 `SearchOptions` の `maxResults` は既定 50・上限 500、`loadAttachments` は既定 false、
 `maxAttachmentBytes` は既定 15 MiB。`newerThanEpochSec` は Gmail クエリと `internalDate` の両方で絞り込む。

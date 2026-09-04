@@ -1,0 +1,15 @@
+{
+  "name": "mail-inbox",
+  "description": "Gmail 読み取り、履歴差分、および watch 登録を提供する共有メール受信境界。",
+  "presetRules": [],
+  "templateRules": [],
+  "specRefs": [
+    "spec/feature/mail-inbox-gmail.md",
+    "spec/interface/mail-inbox.md"
+  ],
+  "membership": [
+    {
+      "pathPattern": "(^|/)packages/mail-inbox/(?:.*/)?[^/]+$"
+    }
+  ]
+}

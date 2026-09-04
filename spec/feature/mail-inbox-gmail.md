@@ -23,6 +23,22 @@
 plain text がない場合、`text/html` を簡易的にタグ除去・entity decode して `text` として返す。
 元の HTML は `html` に保持する。
 
+## [id: SPEC-MAIL-INBOX-005] 履歴失効は呼び出し側へ返す
+
+`history` は Gmail の 404 を例外にせず、`changes: []` と開始時の history ID、および `expired: true` を返す。呼び出し側は全件 sweep へフォールバックできる。
+
+## [id: SPEC-MAIL-INBOX-006] 履歴ページングで取りこぼさない
+
+`history` は `nextPageToken` を追って変更を収集する。`maxPages` で打ち切る場合は、新しい history ID を返さず開始 ID を維持する。
+
+## [id: SPEC-MAIL-INBOX-007] watch は読み取り専用で登録する
+
+`watch` は `labelFilterBehavior: 'include'` を使って watch を登録し、Gmail の文字列 epoch ミリ秒を `Date` に正規化する。読み取り専用 OAuth scope だけで利用する。
+
+## [id: SPEC-MAIL-INBOX-008] watch のライフサイクルを操作する
+
+`stopWatch` は現在の Gmail watch を解除し、`currentHistoryId` は初期同期の基準となる profile の history ID を返す。
+
 ## 制約
 
 - OAuth scope は `https://www.googleapis.com/auth/gmail.readonly` のみ。

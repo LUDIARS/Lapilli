@@ -1,0 +1,14 @@
+{
+  "name": "mail-watch",
+  "description": "Gmail Pub/Sub 通知を StreamingPull で購読する共有境界。",
+  "presetRules": [],
+  "templateRules": [],
+  "specRefs": [
+    "spec/feature/mail-watch.md"
+  ],
+  "membership": [
+    {
+      "pathPattern": "(^|/)packages/mail-watch/(?:.*/)?[^/]+$"
+    }
+  ]
+}

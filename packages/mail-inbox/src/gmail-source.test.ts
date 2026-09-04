@@ -32,6 +32,15 @@ describe('GmailSource', () => {
     expect(fetchImpl.mock.calls[0][1]).toMatchObject({ redirect: 'error' });
   });
 
+  it('preserves request headers without allowing the access token to be overridden', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ historyId: '77' }));
+    const source = new GmailSource({ auth, fetchImpl, baseUrl: 'https://gmail.test/v1' });
+    await source.requestJson('/users/me/profile', { headers: new Headers({ authorization: 'Bearer attacker-token', 'x-request-id': 'request-1' }) });
+    const headers = new Headers(fetchImpl.mock.calls[0][1]?.headers);
+    expect(headers.get('authorization')).toBe('Bearer access-token');
+    expect(headers.get('x-request-id')).toBe('request-1');
+  });
+
   it('rejects an invalid internalDate response', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(messageResponse('mail-1', Number.NaN));
     const source = new GmailSource({ auth, fetchImpl, baseUrl: 'https://gmail.test/v1' });

@@ -32,6 +32,37 @@ export interface MailSource {
   search(query: string, opts?: SearchOptions): Promise<MailMessage[]>;
   get(id: string, opts?: Pick<SearchOptions, 'loadAttachments' | 'maxAttachmentBytes'>): Promise<MailMessage | null>;
   loadAttachment(messageId: string, attachmentId: string): Promise<Buffer>;
+  history(startHistoryId: string, opts?: MailHistoryOptions): Promise<MailHistoryPage>;
+  watch(opts: MailWatchOptions): Promise<MailWatchRegistration>;
+  stopWatch(): Promise<void>;
+  currentHistoryId(): Promise<string>;
+}
+
+export interface MailHistoryChange {
+  messageId: string;
+  type: 'added' | 'deleted' | 'labelAdded' | 'labelRemoved';
+}
+
+export interface MailHistoryOptions {
+  labelIds?: string[];
+  historyTypes?: string[];
+  maxPages?: number;
+}
+
+export interface MailHistoryPage {
+  changes: MailHistoryChange[];
+  historyId: string;
+  expired: boolean;
+}
+
+export interface MailWatchOptions {
+  topicName: string;
+  labelIds?: string[];
+}
+
+export interface MailWatchRegistration {
+  historyId: string;
+  expiration: Date;
 }
 
 export interface AccessTokenProvider {

@@ -1,7 +1,9 @@
 import { decodeBase64Url } from './base64url.js';
 import { MailInboxError } from './errors.js';
+import { fetchHistory } from './history.js';
 import { parseGmailPayload } from './mime-parse.js';
-import type { GmailMessagePayload, GmailSourceOptions, MailMessage, MailSource, ParsedPayload, SearchOptions } from './types.js';
+import type { GmailMessagePayload, GmailSourceOptions, MailHistoryOptions, MailHistoryPage, MailMessage, MailSource, MailWatchOptions, MailWatchRegistration, ParsedPayload, SearchOptions } from './types.js';
+import { fetchCurrentHistoryId, registerWatch, stopWatch } from './watch.js';
 
 const DEFAULT_BASE_URL = 'https://gmail.googleapis.com/gmail/v1';
 const DEFAULT_MAX_RESULTS = 50;
@@ -104,12 +106,39 @@ export class GmailSource implements MailSource {
     return decodeBase64Url(data);
   }
 
-  private async requestJson<T>(path: string): Promise<T> {
+  // @implements SPEC-MAIL-INBOX-005
+  // @implements SPEC-MAIL-INBOX-006
+  async history(startHistoryId: string, opts: MailHistoryOptions = {}): Promise<MailHistoryPage> {
+    return fetchHistory(this, this.encodedUserId, startHistoryId, opts);
+  }
+
+  // @implements SPEC-MAIL-INBOX-007
+  async watch(opts: MailWatchOptions): Promise<MailWatchRegistration> {
+    return registerWatch(this, this.encodedUserId, opts);
+  }
+
+  // @implements SPEC-MAIL-INBOX-008
+  async stopWatch(): Promise<void> {
+    await stopWatch(this, this.encodedUserId);
+  }
+
+  // @implements SPEC-MAIL-INBOX-008
+  async currentHistoryId(): Promise<string> {
+    return fetchCurrentHistoryId(this, this.encodedUserId);
+  }
+
+  // @implements SPEC-MAIL-INBOX-005
+  // @implements SPEC-MAIL-INBOX-007
+  // @implements SPEC-MAIL-INBOX-008
+  async requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
     const token = await this.auth.getAccessToken();
+    const headers = new Headers(init.headers);
+    headers.set('authorization', `Bearer ${token}`);
     let response: Response;
     try {
       response = await this.fetchImpl(`${this.baseUrl}${path}`, {
-        headers: { authorization: `Bearer ${token}` },
+        ...init,
+        headers,
         redirect: 'error',
       });
     } catch {
