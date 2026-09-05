@@ -5,6 +5,9 @@
 //   注入されたコードからのイベントを「bind し忘れたので消えた」にしないため。
 // - test 環境 (NODE_ENV=test / VITEST) と LOG_WEAVER=0 では既定 sink を無効化
 //   する。明示的に bindSink されたものは常に生きる (テストが自前 sink を挿す)。
+// - LOG_WEAVER の明示指定は test 環境の自動判定より優先する: "0" は常に無効、
+//   "1" は test 環境でも明示的に有効。それ以外 (未設定) だけ NODE_ENV=test /
+//   VITEST の自動判定に従う。
 // - emit は never throw。ログが本体を壊すことは絶対にない。
 
 import { appendFileSync, mkdirSync } from 'node:fs';
@@ -14,12 +17,11 @@ import type { WeaverEvent, WeaverLevel, WeaverSink } from './types.js';
 let boundSink: WeaverSink | null = null;
 let defaultSink: WeaverSink | null | undefined;
 
-function defaultDisabled(): boolean {
-  return (
-    process.env.LOG_WEAVER === '0' ||
-    process.env.NODE_ENV === 'test' ||
-    process.env.VITEST === 'true'
-  );
+/** @internal Pure policy helper kept exported only for unit testing. */
+export function defaultDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.LOG_WEAVER === '0') return true;
+  if (env.LOG_WEAVER === '1') return false;
+  return env.NODE_ENV === 'test' || env.VITEST === 'true';
 }
 
 /** logsDir は Vestigium と同じ規約 (env VESTIGIUM_LOGS_DIR > cwd/logs)。 */

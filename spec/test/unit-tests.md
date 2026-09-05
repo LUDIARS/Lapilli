@@ -39,6 +39,12 @@ CI: publish ワークフローは build のみだが、テストは PR / ロー�
 - `pickTier` — `forceTier` 優先、`strongKinds` → strong、simple → cheap、
   大入力 escalate、`rules` 上書き。
 
+**@ludiars/log-weaver** (`src/*.test.ts`):
+- `contract` — sync/async/`this` の透過、pre/post/postThrow/invariant の observe/enforce、
+  sampling、イベント metadata、述語例外を含む値の非漏洩。
+- sink / safety net / event-loop lag / async guard / child process / aspect は個別 test file で、
+  外部 process や目視操作なしに listener・timer・Promise の境界を検証する。
+
 ## 何を充実とみなすか
 
 - ライブラリ種別なので、**公開 export 1 つずつに対し正常系 + 境界 / 異常系** が

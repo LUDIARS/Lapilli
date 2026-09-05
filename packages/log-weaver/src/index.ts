@@ -12,3 +12,4 @@ export { watchChild, type ChildLike } from './child.js';
 export { installProcessSafetyNet, type SafetyNetOptions } from './safety-net.js';
 export { watchEventLoopLag, type LagWatchOptions, type HistogramLike } from './lag.js';
 export { aspect, type AspectOptions } from './aspect.js';
+export { contract, ContractViolationError, type Contract, type ContractSpec } from './contract.js';

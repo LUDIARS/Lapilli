@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { bindSink, emit, weaverLog, sinkBound } from './sink.js';
+import { bindSink, defaultDisabled, emit, weaverLog, sinkBound } from './sink.js';
 import type { WeaverEvent } from './types.js';
 
 describe('sink', () => {
+  it('LOG_WEAVER の明示指定を test 環境の自動無効化より優先する', () => {
+    expect(defaultDisabled({ LOG_WEAVER: '0' })).toBe(true);
+    expect(defaultDisabled({ LOG_WEAVER: '0', NODE_ENV: 'test', VITEST: 'true' })).toBe(true);
+    expect(defaultDisabled({ LOG_WEAVER: '1', NODE_ENV: 'test', VITEST: 'true' })).toBe(false);
+    expect(defaultDisabled({ NODE_ENV: 'test' })).toBe(true);
+    expect(defaultDisabled({ VITEST: 'true' })).toBe(true);
+    expect(defaultDisabled({})).toBe(false);
+  });
+
   it('bindSink したイベントが届き、unbind で止まる', () => {
     const events: WeaverEvent[] = [];
     const unbind = bindSink((e) => events.push(e));

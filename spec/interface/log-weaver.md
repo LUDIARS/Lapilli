@@ -8,7 +8,7 @@ sink に渡すだけで、HTTP / SDK は呼ばない。Vg へは consumer (ま�
 import 例:
 
 ```ts
-import { weaverLog, guardAsync, watchChild, aspect, bindSink } from '@ludiars/log-weaver';
+import { weaverLog, guardAsync, watchChild, aspect, contract, bindSink } from '@ludiars/log-weaver';
 import '@ludiars/log-weaver/auto'; // 1 行注入 (side-effect)
 ```
 
@@ -57,6 +57,22 @@ function watchChild<C extends ChildLike>(child: C, where?: Where): C; // child �
 
 interface AspectOptions extends Where { name: string; slowMs?: number; }
 function aspect<A extends unknown[], R>(fn: (...args: A) => R, options: AspectOptions): (...args: A) => R;
+
+type ContractVerdict = true | false | string;
+interface ContractSpec<A extends unknown[], R> {
+  contractId: string;
+  pre?: (...args: A) => ContractVerdict;
+  post?: (result: Awaited<R>, ...args: A) => ContractVerdict;
+  postThrow?: (err: unknown, ...args: A) => ContractVerdict;
+  invariant?: (self: unknown, ...args: A) => ContractVerdict;
+  mode?: 'observe' | 'enforce';
+  sample?: number;
+}
+type Contract<A extends unknown[], R> = Omit<ContractSpec<A, R>, 'contractId'>;
+function contract<T, A extends unknown[], R>(
+  fn: (this: T, ...args: A) => R,
+  spec: ContractSpec<A, R> & Where,
+): (this: T, ...args: A) => R;
 ```
 
 ## 3. `./auto` サブパス
