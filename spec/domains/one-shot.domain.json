@@ -1,0 +1,7 @@
+{
+  "name": "one-shot",
+  "description": "サブスクリプションCLIの単発起動境界。モデル既定値・認証環境・実行ファイル解決を所有する支援ドメイン。",
+  "presetRules": [],
+  "templateRules": [],
+  "membership": [{ "pathPattern": "(^|/)packages/one-shot/(?:.*/)?[^/]+$" }]
+}

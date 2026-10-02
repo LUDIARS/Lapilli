@@ -1,0 +1,12 @@
+{
+  "name": "@ludiars/one-shot",
+  "version": "0.1.0",
+  "description": "Shared subscription CLI launch boundary for Claude Code and Codex",
+  "type": "module",
+  "bin": { "ludiars-one-shot": "./src/cli.js" },
+  "exports": { ".": { "types": "./src/index.d.ts", "import": "./src/index.js" } },
+  "files": ["src"],
+  "scripts": { "test": "node --test src/*.test.js" },
+  "engines": { "node": ">=22.12.0" },
+  "license": "MIT"
+}
