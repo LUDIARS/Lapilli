@@ -7,12 +7,17 @@ export const DEFAULT_MODELS = Object.freeze({
 
 export function resolveModel(roleOrId, provider, env = process.env) {
   const requested = roleOrId || (provider === 'claude' ? 'sonnet' : 'sol');
-  const model = Object.hasOwn(DEFAULT_MODELS, requested)
-    ? env[`LUDIARS_ONESHOT_MODEL_${requested.toUpperCase()}`] || DEFAULT_MODELS[requested]
+  const [, role, context = ''] = requested.match(/^(.+?)(\[\d+[km]\])?$/i) ?? [];
+  const knownRole = Object.hasOwn(DEFAULT_MODELS, role);
+  const baseModel = knownRole
+    ? env[`LUDIARS_ONESHOT_MODEL_${role.toUpperCase()}`] || DEFAULT_MODELS[role]
     : requested;
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/.test(model)) throw new Error('Invalid one-shot model');
+  const model = knownRole && !baseModel.includes('[') ? baseModel + context : baseModel;
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?:\[\d+[km]\])?$/i.test(model)) throw new Error('Invalid one-shot model');
   if (provider === 'claude' && !model.startsWith('claude-')) throw new Error('Claude requires a Claude model');
-  if (provider === 'codex' && !model.startsWith('gpt-')) throw new Error('Codex requires a GPT model');
+  // Codex also accepts explicit identifiers such as codex-mini-latest. Do not
+  // require every CLI-owned identifier to use the current GPT naming scheme.
+  if (provider === 'codex' && model.startsWith('claude-')) throw new Error('Codex requires a Codex model');
   return model;
 }
 

@@ -10,6 +10,9 @@ maintained default. Explicit model IDs remain exact overrides. The role snapshot
 Concordia's active catalog on 2026-10-03; `LUDIARS_ONESHOT_MODEL_<ROLE>` provides an explicit
 deployment override. Changing the catalog does not automatically update this package.
 Callers must use `resolveModel` when reporting the effective model, rather than the role.
+Context suffixes such as `opus[1m]` are retained when resolving a role; explicit
+provider model identifiers remain the CLI's responsibility. CommonJS consumers
+can use `require('@ludiars/one-shot')` on the supported Node >=22.12 runtime.
 
 The child uses its installed CLI's saved account login. API-key and cloud-provider selectors
 are removed from the child environment. CLI configuration can also affect authentication;
