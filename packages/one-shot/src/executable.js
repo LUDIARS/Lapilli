@@ -11,6 +11,11 @@ export function resolveExecutable(file, env, cwd = process.cwd()) {
   for (const dir of dirs) {
     const native = join(dir, `${name}.exe`);
     if (existsSync(native)) return { file: native, prefix: [] };
+    if (name === 'claude') {
+      // Current Claude Code npm packages ship a native binary instead of cli.js.
+      const binary = join(dir, 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe');
+      if (existsSync(binary)) return { file: binary, prefix: [] };
+    }
     if (name === 'codex') {
       const triple = process.arch === 'arm64' ? 'aarch64-pc-windows-msvc' : 'x86_64-pc-windows-msvc';
       const packages = ['codex', process.arch === 'arm64' ? 'codex-win32-arm64' : 'codex-win32-x64'];
