@@ -36,3 +36,18 @@ call provider APIs directly. Keep the provider-supported CLI/SDK authentication 
 Acceptance: consumers use the shared boundary; old consumer default pins become roles;
 stdin/output/permissions/cancellation contracts remain unchanged. Automated execution and
 live subscription calls require the task's applicable test authorization.
+
+## Available model routing
+
+`runAvailableOneShot(prompt, { tier, readAvailability, executors, signal })` is the
+opt-in provider-neutral entry. The caller supplies current quota observations and
+Claude/Codex executors with equivalent output and tool restrictions. It selects
+one available model before invocation and returns `{ selection, result }`.
+It never retries an executor, including when the outcome is unknown.
+
+Use `requested: { provider, model }` when a model is required: the pin is preserved
+and no quota-based substitution occurs. Existing spawn/exec APIs stay unchanged.
+For automatic calls, provide at least one known quota window per candidate; omit
+only provider-confirmed absent windows. Unknown fields remain null. `observedAt`
+uses epoch milliseconds, `resetsAt` epoch seconds; observations expire after five
+minutes by default. See `spec/feature/one-shot-availability.md` for the contract.

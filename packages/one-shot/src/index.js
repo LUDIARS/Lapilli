@@ -6,6 +6,8 @@ import { resolveModelArgs } from './models.js';
 import { subscriptionEnvironment } from './environment.js';
 export { DEFAULT_MODELS, resolveModel } from './models.js';
 export { subscriptionEnvironment } from './environment.js';
+export { selectAvailableModel } from './availability.js';
+export { runAvailableOneShot } from './available-runner.js';
 
 /**
  * Launch a single CLI job. The caller owns streams, its deadline, cancellation and close.
