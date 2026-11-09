@@ -66,3 +66,20 @@ LAPILLI_TEST("listing is recursive, JS-sorted, skips symbolic links and stops at
     LAPILLI_CHECK_EQ(to_posix(from_utf8("a/\xC3\xA9")), std::string("a/\xC3\xA9"));
     stdfs::remove_all(dir);
 }
+
+#ifndef _WIN32
+#include <unistd.h>
+LAPILLI_TEST("a subdirectory that cannot be entered fails the listing instead of cutting it short") {
+    // root can enter any directory, so this case runs only as an ordinary user (it is skipped,
+    // not failed, under root).
+    if (::geteuid() == 0) return;
+    const auto dir = scratch("denied");
+    write_file(dir / "a.txt", "");
+    write_file(dir / "sub" / "b.txt", "");
+    stdfs::create_directories(dir / "locked");
+    stdfs::permissions(dir / "locked", stdfs::perms::none);
+    LAPILLI_CHECK_THROWS_AS(list_files_recursive(dir), FsError);
+    stdfs::permissions(dir / "locked", stdfs::perms::owner_all);
+    stdfs::remove_all(dir);
+}
+#endif

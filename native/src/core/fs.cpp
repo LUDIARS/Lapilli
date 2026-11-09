@@ -222,17 +222,23 @@ std::vector<std::string> list_files_recursive(const stdfs::path& root, const Lis
     stdfs::recursive_directory_iterator it(root, stdfs::directory_options::none, error);
     if (error) throw FsError(is_missing(root) ? ReadStatus::missing : ReadStatus::io_error, "cannot list " + to_posix(root) + ": " + error.message());
     lorica::input_budget budget({unlimited, options.max_entries, unlimited, 0});
-    for (const stdfs::recursive_directory_iterator end; it != end; it.increment(error)) {
-        if (error) throw FsError(ReadStatus::io_error, "cannot list " + to_posix(root) + ": " + error.message());
+    const stdfs::recursive_directory_iterator end;
+    const auto fail = [&] { throw FsError(ReadStatus::io_error, "cannot list " + to_posix(root) + ": " + error.message()); };
+    while (it != end) {
         if (!budget.consume(0, 1, 0)) throw BudgetExceeded(to_posix(root) + ": more than " + std::to_string(options.max_entries) + " entries");
         const auto& entry = *it;
         std::error_code kind_error;
-        if (entry.is_symlink(kind_error)) continue; // never followed (directory_options::none) nor listed
-        if (entry.is_regular_file(kind_error)) {
+        if (entry.is_symlink(kind_error)) {
+            // never followed (directory_options::none) nor listed
+        } else if (entry.is_regular_file(kind_error)) {
             files.push_back(to_posix(entry.path().lexically_relative(root)));
         } else if (options.include_directories && entry.is_directory(kind_error)) {
             files.push_back(to_posix(entry.path().lexically_relative(root)) + "/");
         }
+        // increment(error) turns the iterator into `end` when a step fails (e.g. a subdirectory
+        // it cannot enter), so the error is checked after every step, before the loop condition.
+        it.increment(error);
+        if (error) fail();
     }
     std::sort(files.begin(), files.end(), text::JsLess{});
     return files;
