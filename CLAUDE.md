@@ -16,6 +16,7 @@ LUDIARS 小型共有ツール集。略称 **La**。
 | `@ludiars/llm-gateway` | LLM トークン節約の request 整形 (prefix-cache 順序付け / ローリング要約 / tier ルーティング)。transport 非依存 |
 | `@ludiars/blackbox` | 成長型ブラックボックス (LLM 判断→ルール昇格→LLM 卒業)。影評価で人間クリック無しでも学習が前進。SQLite/インメモリ両対応 |
 | `@ludiars/log-weaver` | 安定稼働 probe 群 (安全網 / event-loop lag / async ガード / 子プロセス監視 / aspect)。Augur の log injection が注入するランタイム。Vg 互換イベント、transport 非依存 |
+| `native/` (C++) | C++ 移植サービス共通の基盤 (namespace `lapilli`、CMake ターゲット `Lapilli::core` / `crypto` / `one_shot` / `net` / `test_main`)。JS 互換 JSON・UTF-16 文字列・子プロセス (プロセスツリー kill)・行分割・境界付きファイル I/O・OpenSSL 暗号・parseArgs・WHATWG URL・Beast HTTP サーバ/クライアント (SSRF 方針)・one-shot 起動境界。pnpm workspace 外。仕様 `spec/feature/native-common.md` |
 
 ## branch 運用
 
