@@ -6,3 +6,7 @@ logs/
 
 # Anatomia のローカル状態 (ドメイン定義の正本は spec/domains/)
 .anatomia/
+
+# C++ パーツのビルドディレクトリ (cpp/README.md)
+/cpp/build*/
+/cpp/*/build*/

@@ -1,0 +1,12 @@
+{
+  "name": "cpp-sqlite",
+  "description": "C++ の SQLite ラッパー (lapilli::sqlite)。 接続・prepared statement・bind・トランザクション・エラー。",
+  "presetRules": [],
+  "templateRules": [],
+  "specRefs": ["spec/feature/cpp-sqlite.md"],
+  "membership": [
+    {
+      "pathPattern": "(^|/)cpp/sqlite/(?:.*/)?[^/]+$"
+    }
+  ]
+}

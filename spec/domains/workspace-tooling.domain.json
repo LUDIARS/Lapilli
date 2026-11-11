@@ -8,6 +8,9 @@
       "pathPattern": "^(?:package\\.json|pnpm-lock\\.yaml|pnpm-workspace\\.yaml|tsconfig\\.base\\.json)$"
     },
     {
+      "pathPattern": "^cpp/(?:CMakeLists\\.txt|README\\.md)$"
+    },
+    {
       "pathPattern": "^\\.github/workflows/(?:.*/)?[^/]+$"
     },
     {
