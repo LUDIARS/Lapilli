@@ -5,6 +5,9 @@ cmake_minimum_required(VERSION 3.16)
 #cpp/ から読まれたときは上で決まっている。直接読まれたときはテストを作らない (取り込む側のビルドを増やさない)
 option(LAPILLI_BUILD_TESTS "Build the Lapilli C++ tests" OFF)
 
+#Lorica は任意 (LAPILLI_LORICA_DIR)。パーツ単位で取り込まれても効くよう、ここで読む
+include(${CMAKE_CURRENT_LIST_DIR}/../cmake/LapilliLorica.cmake)
+
 #SQLite はシステムのものを使う。amalgamation を取得・同梱しない
 find_package(SQLite3 REQUIRED)
 
@@ -27,6 +30,7 @@ if(MSVC)
 else()
 	target_compile_options(lapilli_sqlite PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+lapilli_harden(lapilli_sqlite)
 
 if(LAPILLI_BUILD_TESTS)
 	enable_testing()
@@ -47,5 +51,6 @@ if(LAPILLI_BUILD_TESTS)
 	else()
 		target_compile_options(lapilli_sqlite_tests PRIVATE -Wall -Wextra -Wpedantic)
 	endif()
+	lapilli_harden(lapilli_sqlite_tests)
 	add_test(NAME lapilli_sqlite_tests COMMAND lapilli_sqlite_tests)
 endif()
