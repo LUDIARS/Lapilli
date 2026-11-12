@@ -57,8 +57,10 @@ cmake -S cpp -B cpp/build-tsan -G Ninja -DCMAKE_CXX_FLAGS="-fsanitize=thread"
 cmake -S cpp -B cpp/build -G Ninja -DLAPILLI_LORICA_DIR=/path/to/lorica
 ```
 
-`lapilli_sqlite` とテストの実行ファイルに `lorica_harden_target` を当てる。取り込む側がすでに
-Lorica を読んでいれば二重には読まない。
+`lapilli_sqlite` とテストの実行ファイルに `lorica_harden_target` を当てる。`cpp/` をまとめて
+取り込んでも、パーツ 1 つ (`cpp/<part>`) だけを取り込んでも同じに効く (判定は各パーツが読む
+`cmake/LapilliLorica.cmake`)。取り込む側がすでに Lorica を読んでいたり、パーツを複数取り込んだり
+しても、Lorica は二重には読まない。
 
 ## サービスからの使い方
 
@@ -74,5 +76,4 @@ target_link_libraries(my_service PRIVATE lapilli::sqlite)
 ```
 
 `<lapilli>` がサービスのソースツリーの外にあるときは、2 つ目の引数 (ビルドディレクトリ) が要る。
-パーツ 1 つだけを取り込んで Lorica も当てたいときは、サービス側で
-`lorica_harden_target(lapilli_sqlite)` を呼ぶ。
+どちらの取り込み方でも、`LAPILLI_LORICA_DIR` を渡せば Lorica が当たる。

@@ -52,7 +52,8 @@ struct GpsInput {
 	std::optional<double> altitude;
 	std::optional<double> velocity;
 	std::optional<double> course;
-	std::optional<std::int64_t> battery;
+	//JS の number。better-sqlite3 は REAL で bind し、列の INTEGER 親和性が整数値だけを整数にする
+	std::optional<double> battery;
 	std::optional<std::string> conn;
 	std::optional<std::string> raw_json;
 };
@@ -82,6 +83,12 @@ double haversine_m(double lat1, double lon1, double lat2, double lon2) {
 	return 2 * r * std::asin(std::fmin(1.0, std::sqrt(h)));
 }
 
+//LAST.samples_first_at || LAST.recorded_at の写し。JS の || は NULL だけでなく空文字も偽とみなす
+std::string samples_first_at_or_recorded(const RecentRow& last) {
+	if (last.samples_first_at && !last.samples_first_at->empty()) return *last.samples_first_at;
+	return last.recorded_at;
+}
+
 //insertGpsLocation の写し (recordedAt は呼び出し側で決める)
 InsertResult insert_gps_location(Database& db, const GpsInput& loc) {
 	Statement dup = db.prepare(R"(
@@ -109,7 +116,7 @@ InsertResult insert_gps_location(Database& db, const GpsInput& loc) {
 		if (haversine_m(prev.lat, prev.lon, last.lat, last.lon) < kStationaryThresholdM &&
 			haversine_m(prev.lat, prev.lon, loc.lat, loc.lon) < kStationaryThresholdM &&
 			haversine_m(last.lat, last.lon, loc.lat, loc.lon) < kStationaryThresholdM) {
-			const std::string samples_first_at = last.samples_first_at.value_or(last.recorded_at);
+			const std::string samples_first_at = samples_first_at_or_recorded(last);
 			Statement upd = db.prepare(R"(
 				UPDATE gps_locations
 				SET recorded_at = ?, lat = ?, lon = ?,
@@ -218,4 +225,55 @@ TEST(gps_insert_three_way, "gps_locations: 重複は skip、停止中の 3 点�
 	CHECK_EQ(first.column_text(2), "w");
 	CHECK_EQ(first.column_text(3), "me");
 	CHECK(!first.column_is_null(4));	//DEFAULT (datetime('now'))
+}
+
+TEST(gps_insert_ts_semantics, "gps_locations: samples_first_at の空文字と battery の REAL bind を TS の写しどおりに扱う") {
+	//|| の写し: 空文字は NULL と同じく recorded_at に落ちる
+	CHECK_EQ(samples_first_at_or_recorded({ 1, 0, 0, "T", std::nullopt }), "T");
+	CHECK_EQ(samples_first_at_or_recorded({ 1, 0, 0, "T", std::string() }), "T");
+	CHECK_EQ(samples_first_at_or_recorded({ 1, 0, 0, "T", std::string("S") }), "S");
+
+	testing::TempPath path;
+	OpenOptions o;
+	o.create = true;
+	Database db = Database::open(path.str(), o);
+	db.exec(kGpsDdl);
+
+	//battery: 整数値は INTEGER、端数ありは REAL のまま (better-sqlite3 が number を REAL で bind するのと同じ)
+	GpsInput a = point("2026-11-11T00:00:00.000Z", 35.0, 135.0);
+	a.battery = 85;
+	GpsInput b = point("2026-11-11T00:01:00.000Z", 35.01, 135.0);
+	b.battery = 85.5;
+	const InsertResult ra = insert_gps_location(db, a);
+	const InsertResult rb = insert_gps_location(db, b);
+	CHECK(rb.outcome == Outcome::inserted);
+	Statement ty = db.prepare("SELECT typeof(battery_pct), battery_pct FROM gps_locations WHERE id = ?");
+	ty.bind_all(ra.id);
+	CHECK(ty.step());
+	CHECK_EQ(ty.column_text(0), "integer");
+	CHECK_EQ(ty.column_int64(1), 85);
+	ty.reset();
+	ty.bind_all(rb.id);
+	CHECK(ty.step());
+	CHECK_EQ(ty.column_text(0), "real");
+	CHECK_EQ(ty.column_double(1), 85.5);
+	ty.reset();
+
+	//LAST の samples_first_at が空文字でも圧縮は進む。列は COALESCE なので空文字のまま残る (TS と同じ)
+	const InsertResult rc = insert_gps_location(db, point("2026-11-11T00:02:00.000Z", 35.0101, 135.0));
+	CHECK(rc.outcome == Outcome::inserted);	//b と c が停止区間の起点と終点になる
+	Statement blank = db.prepare("UPDATE gps_locations SET samples_first_at = '' WHERE id = ?");
+	blank.bind_all(rc.id).run();
+	GpsInput d = point("2026-11-11T00:03:00.000Z", 35.01, 135.0001);
+	d.battery = 84.0;
+	const InsertResult rd = insert_gps_location(db, d);
+	CHECK(rd.outcome == Outcome::merged);
+	CHECK_EQ(rd.id, rc.id);
+	Statement tail = db.prepare("SELECT samples_first_at, samples_count, typeof(battery_pct) FROM gps_locations WHERE id = ?");
+	tail.bind_all(rc.id);
+	CHECK(tail.step());
+	CHECK_EQ(tail.column_text(0), "");
+	CHECK_EQ(tail.column_int64(1), 2);
+	CHECK_EQ(tail.column_text(2), "integer");	//UPDATE 側も同じ bind
+	tail.reset();
 }
