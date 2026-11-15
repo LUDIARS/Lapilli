@@ -1,0 +1,8 @@
+{
+  "name": "native-common",
+  "description": "C++ 移植サービス共通の基盤ライブラリ (native/)。JSON・テキスト・子プロセス・行分割・ファイル・暗号・CLI 引数・URL・HTTP サーバ/クライアント・one-shot 起動境界を所有する支援ドメイン。",
+  "presetRules": [],
+  "templateRules": [],
+  "specRefs": ["spec/feature/native-common.md"],
+  "membership": [{ "pathPattern": "(^|/)native/(?:.*/)?[^/]+$" }]
+}

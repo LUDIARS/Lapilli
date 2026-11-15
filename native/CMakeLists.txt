@@ -1,0 +1,115 @@
+# Lapilli native (C++): infrastructure shared by the LUDIARS services ported from Node.js.
+# Usable standalone (its own tests) and from a consumer through add_subdirectory / FetchContent.
+#
+# Targets (all static, all hardened with lorica_harden_target()):
+#   Lapilli::core      json, text, js_math, process, lines, fs, cli, ordered, url, budget
+#   Lapilli::crypto    sha256 / HMAC / random / base64 / hex over OpenSSL 3     (LAPILLI_NATIVE_CRYPTO)
+#   Lapilli::one_shot  the claude -p / codex exec launch boundary                (LAPILLI_NATIVE_ONE_SHOT)
+#   Lapilli::net       HTTP server / client (Beast), TLS (OpenSSL), SSRF policy  (LAPILLI_NATIVE_NET)
+#   Lapilli::test_main the registry test runner's main() for lapilli/test/check.hpp
+cmake_minimum_required(VERSION 3.24)
+project(LapilliNative VERSION 0.1.0 LANGUAGES CXX)
+
+if(PROJECT_IS_TOP_LEVEL)
+  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_EXTENSIONS OFF)
+  if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+  endif()
+endif()
+
+option(LAPILLI_NATIVE_CRYPTO "Build Lapilli::crypto (OpenSSL)" ON)
+option(LAPILLI_NATIVE_ONE_SHOT "Build Lapilli::one_shot" ON)
+option(LAPILLI_NATIVE_NET "Build Lapilli::net (Boost.Beast + OpenSSL)" ON)
+option(LAPILLI_NATIVE_TESTS "Build the Lapilli native tests" ${PROJECT_IS_TOP_LEVEL})
+if(LAPILLI_NATIVE_NET AND NOT LAPILLI_NATIVE_CRYPTO)
+  message(FATAL_ERROR "Lapilli: LAPILLI_NATIVE_NET needs LAPILLI_NATIVE_CRYPTO")
+endif()
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/LapilliDependencies.cmake")
+
+# Warnings and platform definitions, per target (nothing leaks into the consumer's targets).
+function(lapilli_configure_target target)
+  target_compile_features(${target} PUBLIC cxx_std_20)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /utf-8 /W4 /permissive- /bigobj)
+    target_compile_definitions(${target} PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+  endif()
+  lorica_harden_target(${target})
+endfunction()
+
+set(LAPILLI_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+add_library(lapilli_core STATIC
+  src/core/json.cpp src/core/text.cpp src/core/js_math.cpp src/core/process.cpp
+  src/core/lines.cpp src/core/fs.cpp src/core/cli.cpp src/core/url.cpp)
+add_library(Lapilli::core ALIAS lapilli_core)
+target_include_directories(lapilli_core PUBLIC "${LAPILLI_INCLUDE_DIR}")
+target_link_libraries(lapilli_core PUBLIC nlohmann_json::nlohmann_json Lorica::boundary Threads::Threads)
+lapilli_configure_target(lapilli_core)
+
+if(LAPILLI_NATIVE_CRYPTO)
+  add_library(lapilli_crypto STATIC src/crypto/crypto.cpp)
+  add_library(Lapilli::crypto ALIAS lapilli_crypto)
+  target_include_directories(lapilli_crypto PUBLIC "${LAPILLI_INCLUDE_DIR}")
+  target_link_libraries(lapilli_crypto PUBLIC Lorica::boundary OpenSSL::Crypto)
+  lapilli_configure_target(lapilli_crypto)
+endif()
+
+if(LAPILLI_NATIVE_ONE_SHOT)
+  add_library(lapilli_one_shot STATIC src/one_shot/one_shot.cpp)
+  add_library(Lapilli::one_shot ALIAS lapilli_one_shot)
+  target_link_libraries(lapilli_one_shot PUBLIC lapilli_core)
+  lapilli_configure_target(lapilli_one_shot)
+endif()
+
+if(LAPILLI_NATIVE_NET)
+  add_library(lapilli_net STATIC
+    src/net/common.cpp src/net/tls.cpp src/net/address_policy.cpp src/net/server.cpp src/net/client.cpp src/net/resolve_port.cpp)
+  add_library(Lapilli::net ALIAS lapilli_net)
+  target_link_libraries(lapilli_net PUBLIC lapilli_core lapilli_crypto OpenSSL::SSL OpenSSL::Crypto PRIVATE lapilli_boost)
+  if(WIN32)
+    # Winsock for Asio, crypt32 for the Windows ROOT certificate store (configure_client_tls).
+    target_link_libraries(lapilli_net PUBLIC ws2_32 mswsock crypt32)
+  endif()
+  lapilli_configure_target(lapilli_net)
+endif()
+
+add_library(lapilli_test_main STATIC src/test/main.cpp)
+add_library(Lapilli::test_main ALIAS lapilli_test_main)
+target_include_directories(lapilli_test_main PUBLIC "${LAPILLI_INCLUDE_DIR}")
+lapilli_configure_target(lapilli_test_main)
+
+if(LAPILLI_NATIVE_TESTS)
+  enable_testing()
+  function(lapilli_add_test name)
+    add_executable(lapilli_test_${name} tests/${name}_test.cpp)
+    target_link_libraries(lapilli_test_${name} PRIVATE lapilli_test_main ${ARGN})
+    lapilli_configure_target(lapilli_test_${name})
+    add_test(NAME lapilli.${name} COMMAND lapilli_test_${name})
+    set_tests_properties(lapilli.${name} PROPERTIES TIMEOUT 300)
+  endfunction()
+  lapilli_add_test(json lapilli_core)
+  lapilli_add_test(text lapilli_core)
+  lapilli_add_test(js_math lapilli_core)
+  lapilli_add_test(process lapilli_core)
+  lapilli_add_test(lines lapilli_core)
+  lapilli_add_test(fs lapilli_core)
+  lapilli_add_test(cli lapilli_core)
+  lapilli_add_test(ordered lapilli_core)
+  lapilli_add_test(url lapilli_core)
+  lapilli_add_test(check lapilli_core)
+  if(LAPILLI_NATIVE_CRYPTO)
+    lapilli_add_test(crypto lapilli_crypto)
+  endif()
+  if(LAPILLI_NATIVE_ONE_SHOT)
+    lapilli_add_test(one_shot lapilli_one_shot)
+  endif()
+  if(LAPILLI_NATIVE_NET)
+    lapilli_add_test(http_server lapilli_net lapilli_boost)
+    lapilli_add_test(http_client lapilli_net lapilli_boost)
+  endif()
+endif()
