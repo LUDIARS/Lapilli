@@ -46,7 +46,7 @@ endif()
 # --- OpenSSL 3 (crypto and net parts) ----------------------------------------------------------
 if(LAPILLI_NATIVE_CRYPTO OR LAPILLI_NATIVE_NET)
   if(NOT TARGET OpenSSL::Crypto)
-    find_package(OpenSSL 3 REQUIRED)
+    find_package(OpenSSL 3...<4 REQUIRED)
   endif()
 endif()
 

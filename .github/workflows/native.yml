@@ -1,0 +1,62 @@
+name: native
+
+on:
+  push:
+    branches: [main]
+    paths: ['native/**', '.github/workflows/native.yml']
+  pull_request:
+    paths: ['native/**', '.github/workflows/native.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: native / linux (${{ matrix.config.name }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { name: debug, flags: '' }
+          - { name: asan-ubsan, flags: '-fsanitize=address,undefined -fno-omit-frame-pointer' }
+          - { name: tsan, flags: '-fsanitize=thread -fno-omit-frame-pointer' }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install build tools and OpenSSL headers
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libssl-dev
+      - name: Use a TSan-compatible address space
+        if: matrix.config.name == 'tsan'
+        run: sudo sysctl -w vm.mmap_rnd_bits=28
+      - name: Configure
+        env:
+          CXX: g++
+          CXXFLAGS: ${{ matrix.config.flags }}
+        run: cmake -S native -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG=-g1
+      - name: Build
+        run: cmake --build build --parallel 2
+      - name: Test
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+          TSAN_OPTIONS: halt_on_error=1
+        run: ctest --test-dir build --verbose --no-tests=error
+
+  windows:
+    name: native / windows (msvc x64)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Configure with the runner's OpenSSL 3 SDK
+        run: >
+          cmake -S native -B build -G "Visual Studio 17 2022" -A x64
+          "-DOPENSSL_ROOT_DIR=$env:ProgramFiles/OpenSSL"
+      - name: Build
+        run: cmake --build build --config Release --parallel 2
+      - name: Test
+        run: ctest --test-dir build -C Release --verbose --no-tests=error

@@ -13,8 +13,11 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 
+#include <openssl/ssl.h>
+
 #include <atomic>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -246,6 +249,20 @@ LAPILLI_TEST("timeouts, refused connections, bad URLs and cancellation; errors n
     other.url = "not a url";
     LAPILLI_CHECK(kind_of(other) == FetchErrorKind::invalid_url);
     LAPILLI_CHECK_THROWS_AS(fetch(other), FetchError);
+}
+
+LAPILLI_TEST("client TLS requires TLS 1.2, verifies peers and loads platform trust") {
+    std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)> context(SSL_CTX_new(TLS_client_method()), SSL_CTX_free);
+    LAPILLI_CHECK(context != nullptr);
+    const int imported = configure_client_tls(context.get());
+    LAPILLI_CHECK_EQ(SSL_CTX_get_min_proto_version(context.get()), TLS1_2_VERSION);
+    LAPILLI_CHECK((SSL_CTX_get_verify_mode(context.get()) & SSL_VERIFY_PEER) != 0);
+#ifdef _WIN32
+    LAPILLI_CHECK(imported > 0); // Hosted Windows has a populated system ROOT store.
+    LAPILLI_CHECK(sk_X509_OBJECT_num(X509_STORE_get0_objects(SSL_CTX_get_cert_store(context.get()))) > 0);
+#else
+    LAPILLI_CHECK_EQ(imported, 0);
+#endif
 }
 
 LAPILLI_TEST("https verifies the peer: a plain-text server fails the TLS handshake") {

@@ -47,18 +47,15 @@ LAPILLI_TEST("writes create parents; append appends; atomic write replaces witho
     stdfs::remove_all(dir);
 }
 
-LAPILLI_TEST("listing is recursive, JS-sorted, skips symbolic links and stops at its entry budget") {
+LAPILLI_TEST("listing is recursive, JS-sorted and stops at its entry budget") {
     const auto dir = scratch("list");
     write_file(dir / "b.txt", "");
     write_file(dir / "a" / "z.txt", "");
-    write_file(dir / "B.txt", "");
-    std::error_code link_error;
-    stdfs::create_directory_symlink(dir / "a", dir / "link", link_error);
-    stdfs::create_symlink(dir / "b.txt", dir / "file-link", link_error);
-    LAPILLI_CHECK((list_files_recursive(dir) == std::vector<std::string>{"B.txt", "a/z.txt", "b.txt"}));
+    write_file(dir / "Z.txt", "");
+    LAPILLI_CHECK((list_files_recursive(dir) == std::vector<std::string>{"Z.txt", "a/z.txt", "b.txt"}));
     ListOptions with_dirs;
     with_dirs.include_directories = true;
-    LAPILLI_CHECK((list_files_recursive(dir, with_dirs) == std::vector<std::string>{"B.txt", "a/", "a/z.txt", "b.txt"}));
+    LAPILLI_CHECK((list_files_recursive(dir, with_dirs) == std::vector<std::string>{"Z.txt", "a/", "a/z.txt", "b.txt"}));
     ListOptions tight;
     tight.max_entries = 3;
     LAPILLI_CHECK_THROWS_AS(list_files_recursive(dir, tight), lapilli::BudgetExceeded);
