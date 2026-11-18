@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { resolveExecutable } from './executable.js';
 import { resolveModelArgs } from './models.js';
 import { subscriptionEnvironment } from './environment.js';
-export { DEFAULT_MODELS, resolveModel } from './models.js';
+export { MODEL_ROLES, readRoleMap, resolveModel, roleMapPath } from './models.js';
 export { subscriptionEnvironment } from './environment.js';
 export { selectAvailableModel } from './availability.js';
 export { runAvailableOneShot } from './available-runner.js';

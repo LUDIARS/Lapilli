@@ -1,20 +1,29 @@
-// Model roles are resolved here, never by CLI aliases or consumer default pins.
-// Snapshot of the active Concordia model catalog, 2026-10-03.
-export const DEFAULT_MODELS = Object.freeze({
-  opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5', haiku: 'claude-haiku-4-5-20251001',
-  fable: 'claude-fable-5-1', astra: 'gpt-6-astra', sol: 'gpt-6-sol', luna: 'gpt-6-luna',
-});
+// Model roles resolve through Concordia's role map (role-map.js); no model id is pinned here.
+import { readRoleMap, roleProvider } from './role-map.js';
+
+export { MODEL_ROLES, readRoleMap, roleMapPath } from './role-map.js';
+
+// Claude Code resolves these aliases itself, so they are a safe fallback without a pinned id.
+const CLAUDE_CLI_ALIASES = new Set(['opus', 'sonnet', 'haiku']);
+
+function roleModel(role, provider, env) {
+  const override = env[`LUDIARS_ONESHOT_MODEL_${role.toUpperCase()}`];
+  if (override) return { model: override, alias: false };
+  const mapped = readRoleMap(env)?.[provider]?.[role];
+  if (typeof mapped === 'string' && mapped) return { model: mapped, alias: false };
+  if (provider === 'claude' && CLAUDE_CLI_ALIASES.has(role)) return { model: role, alias: true };
+  throw new Error(`model_role_unresolved:${role}`);
+}
 
 export function resolveModel(roleOrId, provider, env = process.env) {
   const requested = roleOrId || (provider === 'claude' ? 'sonnet' : 'sol');
   const [, role, context = ''] = requested.match(/^(.+?)(\[\d+[km]\])?$/i) ?? [];
-  const knownRole = Object.hasOwn(DEFAULT_MODELS, role);
-  const baseModel = knownRole
-    ? env[`LUDIARS_ONESHOT_MODEL_${role.toUpperCase()}`] || DEFAULT_MODELS[role]
-    : requested;
-  const model = knownRole && !baseModel.includes('[') ? baseModel + context : baseModel;
+  const owner = roleProvider(role);
+  if (owner && owner !== provider) throw new Error(provider === 'claude' ? 'Claude requires a Claude model' : 'Codex requires a Codex model');
+  const resolved = owner ? roleModel(role, provider, env) : { model: requested, alias: false };
+  const model = owner && !resolved.model.includes('[') ? resolved.model + context : resolved.model;
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?:\[\d+[km]\])?$/i.test(model)) throw new Error('Invalid one-shot model');
-  if (provider === 'claude' && !model.startsWith('claude-')) throw new Error('Claude requires a Claude model');
+  if (provider === 'claude' && !resolved.alias && !model.startsWith('claude-')) throw new Error('Claude requires a Claude model');
   // Codex also accepts explicit identifiers such as codex-mini-latest. Do not
   // require every CLI-owned identifier to use the current GPT naming scheme.
   if (provider === 'codex' && model.startsWith('claude-')) throw new Error('Codex requires a Codex model');

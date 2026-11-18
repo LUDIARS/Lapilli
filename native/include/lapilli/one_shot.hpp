@@ -3,9 +3,11 @@
 // not run an agentic job twice), no shell, no API fallback:
 //  - subscription_environment(): the child environment without API keys, cloud-provider selectors
 //    or the parent session's bindings (the CLI uses its saved subscription login);
-//  - resolve_model(): role names (opus / sonnet / haiku / fable / astra / sol / luna) resolve to the
-//    central snapshot (LUDIARS_ONESHOT_MODEL_<ROLE> overrides it); explicit ids, context suffixes
-//    such as "opus[1m]" and CLI-owned Codex ids ("codex-mini-latest") are kept;
+//  - resolve_model(): role names (opus / sonnet / haiku / fable / astra / sol / luna) resolve through
+//    Concordia's role map file (role_map_path(); LUDIARS_ONESHOT_MODEL_<ROLE> overrides it). No model
+//    id is pinned here. Without a map, Claude opus / sonnet / haiku pass as Claude Code CLI aliases and
+//    every other role throws "model_role_unresolved:<role>". Explicit ids, context suffixes such as
+//    "opus[1m]" and CLI-owned Codex ids ("codex-mini-latest") are kept;
 //  - resolve_executable(): which file is spawned, by policy:
 //      native_only       a native executable only. Windows: a .exe / .com on PATH, the native binary
 //                        an npm package ships, or the .exe an npm .cmd shim points to; a shim to a
@@ -50,12 +52,13 @@ bool is_blocked_env_name(std::string_view name) noexcept;
 /** `source` without the blocked variables (the source is not modified). */
 EnvList subscription_environment(const EnvList& source);
 
-struct RoleModel {
-    const char* role;
-    const char* model;
-};
-/** The role snapshot (Concordia's active catalog, 2026-10-03), in declaration order. */
-const std::vector<RoleModel>& default_models();
+/** The provider a role name belongs to (opus / sonnet / haiku / fable: claude; astra / sol / luna: codex). */
+std::optional<Provider> role_provider(std::string_view role) noexcept;
+/** Where Concordia writes the role map: LUDIARS_MODEL_ROLES_FILE, else %LOCALAPPDATA%LUDIARSmodel-roles.json
+ *  (Windows) or $XDG_STATE_HOME/ludiars/model-roles.json (default ~/.local/state). Empty when no base is known. */
+std::string role_map_path(const EnvList& env);
+/** The role's model id from the role map file, or nullopt (absent / invalid file, unknown role). */
+std::optional<std::string> role_map_model(const EnvList& env, Provider provider, std::string_view role);
 
 /** resolveModel(roleOrId, provider, env). Throws OneShotError. */
 std::string resolve_model(const std::optional<std::string>& role_or_id, Provider provider, const EnvList& env);

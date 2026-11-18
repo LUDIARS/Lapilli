@@ -2,8 +2,10 @@
 // Ingenium's native-only resolution tests (tests/playtest/resolve_cli_command_test.cpp), the TS
 // allow_node_entry resolution, prepare() (cmd /c unwrapping, provider detection) and run().
 #include "lapilli/one_shot.hpp"
+#include "lapilli/fs.hpp"
 #include "lapilli/test/check.hpp"
 
+#include <filesystem>
 #include <map>
 #include <memory>
 
@@ -65,29 +67,61 @@ std::string message_of(const std::function<void()>& run) {
 
 const std::string ELF = std::string("\x7f" "ELF\x02\x01", 6);
 
+/** A role map with fake ids: proves no model id is pinned in the library. */
+const char* const FIXTURE_ROLES =
+    R"({"schemaVersion":1,"roles":{"claude":{"opus":"claude-opus-test","sonnet":"claude-sonnet-test","haiku":"claude-haiku-test","fable":"claude-fable-test"},)"
+    R"("codex":{"astra":"gpt-test-astra","sol":"gpt-test-sol","luna":"gpt-test-luna"}}})";
+
+std::string role_file(const std::string& name, const std::string& contents) {
+    const auto path = std::filesystem::temp_directory_path() / "lapilli-one-shot-roles" / name;
+    lapilli::fs::write_file(path, contents);
+    return path.string();
+}
+
+EnvList fixture_env() { return {{"LUDIARS_MODEL_ROLES_FILE", role_file("model-roles.json", FIXTURE_ROLES)}}; }
+EnvList missing_env() {
+    return {{"LUDIARS_MODEL_ROLES_FILE", (std::filesystem::temp_directory_path() / "lapilli-one-shot-roles" / "none.json").string()}};
+}
+
 } // namespace
 
-LAPILLI_TEST("role defaults are concrete while explicitly pinned models stay exact (models.test.js)") {
-    LAPILLI_CHECK(resolve_model_args({"-p", "--model", "opus"}, Provider::claude, {}) == (Args{"-p", "--model", "claude-opus-5-5"}));
-    LAPILLI_CHECK(resolve_model_args({"exec", "-m", "gpt-6-luna", "-"}, Provider::codex, {}) == (Args{"exec", "-m", "gpt-6-luna", "-"}));
-    LAPILLI_CHECK(resolve_model_args({"exec", "-"}, Provider::codex, {}) == (Args{"exec", "--model", "gpt-6-sol", "-"}));
-    LAPILLI_CHECK(resolve_model_args({"-p"}, Provider::claude, {}) == (Args{"--model", "claude-sonnet-5", "-p"}));
-    LAPILLI_CHECK(resolve_model_args({"-p", "--model=haiku"}, Provider::claude, {}) == (Args{"-p", "--model=claude-haiku-4-5-20251001"}));
-    LAPILLI_CHECK_EQ(message_of([] { resolve_model_args({"-p", "--model"}, Provider::claude, {}); }), std::string("Missing model argument"));
-    LAPILLI_CHECK_EQ(message_of([] { resolve_model_args({"-p", "--model", "gpt-6-sol"}, Provider::claude, {}); }), std::string("Claude requires a Claude model"));
+LAPILLI_TEST("roles resolve through the role map while explicitly pinned models stay exact (models.test.js)") {
+    const auto env = fixture_env();
+    LAPILLI_CHECK(resolve_model_args({"-p", "--model", "opus"}, Provider::claude, env) == (Args{"-p", "--model", "claude-opus-test"}));
+    LAPILLI_CHECK(resolve_model_args({"exec", "-m", "gpt-6-luna", "-"}, Provider::codex, env) == (Args{"exec", "-m", "gpt-6-luna", "-"}));
+    LAPILLI_CHECK(resolve_model_args({"exec", "-"}, Provider::codex, env) == (Args{"exec", "--model", "gpt-test-sol", "-"}));
+    LAPILLI_CHECK(resolve_model_args({"-p"}, Provider::claude, env) == (Args{"--model", "claude-sonnet-test", "-p"}));
+    LAPILLI_CHECK(resolve_model_args({"-p", "--model=haiku"}, Provider::claude, env) == (Args{"-p", "--model=claude-haiku-test"}));
+    LAPILLI_CHECK_EQ(message_of([&] { resolve_model_args({"-p", "--model"}, Provider::claude, env); }), std::string("Missing model argument"));
+    LAPILLI_CHECK_EQ(message_of([&] { resolve_model_args({"-p", "--model", "gpt-6-sol"}, Provider::claude, env); }), std::string("Claude requires a Claude model"));
+}
+
+LAPILLI_TEST("without a role map Claude falls back to CLI aliases and Codex refuses (models.test.js)") {
+    const auto none = missing_env();
+    LAPILLI_CHECK_EQ(resolve_model(std::string("opus[1m]"), Provider::claude, none), std::string("opus[1m]"));
+    LAPILLI_CHECK_EQ(resolve_model(std::nullopt, Provider::claude, none), std::string("sonnet"));
+    LAPILLI_CHECK_EQ(message_of([&] { resolve_model(std::string("fable"), Provider::claude, none); }), std::string("model_role_unresolved:fable"));
+    LAPILLI_CHECK_EQ(message_of([&] { resolve_model(std::nullopt, Provider::codex, none); }), std::string("model_role_unresolved:sol"));
+    const EnvList broken{{"LUDIARS_MODEL_ROLES_FILE", role_file("broken.json", "{not json")}};
+    LAPILLI_CHECK_EQ(resolve_model(std::string("haiku"), Provider::claude, broken), std::string("haiku"));
+    LAPILLI_CHECK_EQ(role_map_path({{"LUDIARS_MODEL_ROLES_FILE", " x.json "}}), std::string("x.json"));
+    LAPILLI_CHECK(role_provider("sol") == Provider::codex && role_provider("fable") == Provider::claude && !role_provider("gpt"));
 }
 
 LAPILLI_TEST("context suffixes, overrides and explicit Codex identifiers survive (models.test.js)") {
-    LAPILLI_CHECK_EQ(resolve_model(std::string("opus[1m]"), Provider::claude, {}), std::string("claude-opus-5-5[1m]"));
-    LAPILLI_CHECK_EQ(resolve_model(std::string("claude-opus-4-7[1m]"), Provider::claude, {}), std::string("claude-opus-4-7[1m]"));
-    LAPILLI_CHECK_EQ(resolve_model(std::string("codex-mini-latest"), Provider::codex, {}), std::string("codex-mini-latest"));
-    LAPILLI_CHECK_EQ(resolve_model(std::string("5.3-codex"), Provider::codex, {}), std::string("5.3-codex"));
-    LAPILLI_CHECK_EQ(message_of([] { resolve_model(std::string("opus"), Provider::codex, {}); }), std::string("Codex requires a Codex model"));
-    LAPILLI_CHECK_EQ(message_of([] { resolve_model(std::string("claude-opus-5-5[1m]; echo x"), Provider::claude, {}); }), std::string("Invalid one-shot model"));
+    const auto env = fixture_env();
+    LAPILLI_CHECK_EQ(resolve_model(std::string("opus[1m]"), Provider::claude, env), std::string("claude-opus-test[1m]"));
+    LAPILLI_CHECK_EQ(resolve_model(std::string("claude-opus-4-7[1m]"), Provider::claude, env), std::string("claude-opus-4-7[1m]"));
+    LAPILLI_CHECK_EQ(resolve_model(std::string("codex-mini-latest"), Provider::codex, env), std::string("codex-mini-latest"));
+    LAPILLI_CHECK_EQ(resolve_model(std::string("5.3-codex"), Provider::codex, env), std::string("5.3-codex"));
+    LAPILLI_CHECK_EQ(message_of([&] { resolve_model(std::string("opus"), Provider::codex, env); }), std::string("Codex requires a Codex model"));
+    LAPILLI_CHECK_EQ(message_of([&] { resolve_model(std::string("sol"), Provider::claude, env); }), std::string("Claude requires a Claude model"));
+    LAPILLI_CHECK_EQ(message_of([&] { resolve_model(std::string("claude-opus-5-5[1m]; echo x"), Provider::claude, env); }), std::string("Invalid one-shot model"));
     LAPILLI_CHECK_EQ(resolve_model(std::string("sonnet"), Provider::claude, {{"LUDIARS_ONESHOT_MODEL_SONNET", "claude-pinned-1"}}), std::string("claude-pinned-1"));
     LAPILLI_CHECK_EQ(resolve_model(std::string("sonnet[1m]"), Provider::claude, {{"LUDIARS_ONESHOT_MODEL_SONNET", "claude-x[200k]"}}), std::string("claude-x[200k]"));
-    LAPILLI_CHECK_EQ(resolve_model(std::nullopt, Provider::codex, {{"LUDIARS_ONESHOT_MODEL_SOL", ""}}), std::string("gpt-6-sol"));
-    LAPILLI_CHECK_EQ(default_models().size(), 7u);
+    EnvList empty_override = env;
+    empty_override.push_back({"LUDIARS_ONESHOT_MODEL_SOL", ""});
+    LAPILLI_CHECK_EQ(resolve_model(std::nullopt, Provider::codex, empty_override), std::string("gpt-test-sol"));
 }
 
 LAPILLI_TEST("subscription environment drops API billing selectors and the parent session's bindings") {
@@ -143,15 +177,16 @@ LAPILLI_TEST("allow_node_entry on Windows: the npm JS entry runs as [node, entry
 
 LAPILLI_TEST("prepare: provider detection, cmd /c unwrapping, model args, subscription env, Git Bash on Windows") {
     PrepareOptions options;
-    options.env = EnvList{{"PATH", "/usr/bin:/home/u/.local/bin"}, {"ANTHROPIC_API_KEY", "k"}};
+    const auto roles = fixture_env().front();
+    options.env = EnvList{{"PATH", "/usr/bin:/home/u/.local/bin"}, {"ANTHROPIC_API_KEY", "k"}, roles};
     options.lookup = posix({{"/home/u/.local/bin/claude", ELF}, {"/usr/bin/codex", ELF}});
     const auto launch = prepare("claude", {"-p", "--model", "opus", "--tools", ""}, options);
     LAPILLI_CHECK(launch.provider == Provider::claude);
     LAPILLI_CHECK_EQ(launch.file, std::string("/home/u/.local/bin/claude"));
-    LAPILLI_CHECK(launch.args == (Args{"-p", "--model", "claude-opus-5-5", "--tools", ""}));
-    LAPILLI_CHECK(launch.env == (EnvList{{"PATH", "/usr/bin:/home/u/.local/bin"}}));
+    LAPILLI_CHECK(launch.args == (Args{"-p", "--model", "claude-opus-test", "--tools", ""}));
+    LAPILLI_CHECK(launch.env == (EnvList{{"PATH", "/usr/bin:/home/u/.local/bin"}, roles}));
     const auto codex = prepare("codex", {"exec", "--json", "-"}, options);
-    LAPILLI_CHECK(codex.args == (Args{"exec", "--model", "gpt-6-sol", "--json", "-"}));
+    LAPILLI_CHECK(codex.args == (Args{"exec", "--model", "gpt-test-sol", "--json", "-"}));
     const auto wrapped = prepare("C:\\Windows\\System32\\cmd.exe", {"/C", "claude", "-p"}, options);
     LAPILLI_CHECK_EQ(wrapped.file, std::string("/home/u/.local/bin/claude"));
     LAPILLI_CHECK_EQ(message_of([&] { prepare("cmd", {"/c", "claude && evil", "-p"}, options); }), std::string("Unsupported CLI shell wrapper"));

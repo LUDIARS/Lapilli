@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "native": [
+    {
+      "file": "native/src/one_shot/one_shot.cpp",
+      "standard": "c++20",
+      "includes": ["native/include"],
+      "defines": ["WIN32_LEAN_AND_MEAN", "NOMINMAX", "_WIN32_WINNT=0x0A00"],
+      "packages": ["odeum-json-3-11-3", "discutere-lorica-cab4f120"]
+    },
+    {
+      "file": "native/tests/one_shot_test.cpp",
+      "standard": "c++20",
+      "includes": ["native/include"],
+      "defines": ["WIN32_LEAN_AND_MEAN", "NOMINMAX", "_WIN32_WINNT=0x0A00"],
+      "packages": ["odeum-json-3-11-3", "discutere-lorica-cab4f120"]
+    }
+  ]
+}

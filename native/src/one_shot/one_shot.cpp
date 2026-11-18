@@ -1,6 +1,7 @@
 #include "lapilli/one_shot.hpp"
 
 #include "lapilli/fs.hpp"
+#include "lapilli/json.hpp"
 #include "lapilli/text.hpp"
 
 #include <algorithm>
@@ -42,13 +43,57 @@ EnvList subscription_environment(const EnvList& source) {
 
 // --- models ---------------------------------------------------------------------------------------
 
-const std::vector<RoleModel>& default_models() {
-    // Snapshot of the active Concordia model catalog, 2026-10-03 (packages/one-shot/src/models.js).
-    static const std::vector<RoleModel> models = {
-        {"opus", "claude-opus-5-5"}, {"sonnet", "claude-sonnet-5"}, {"haiku", "claude-haiku-4-5-20251001"},
-        {"fable", "claude-fable-5-1"}, {"astra", "gpt-6-astra"}, {"sol", "gpt-6-sol"}, {"luna", "gpt-6-luna"},
+std::optional<Provider> role_provider(std::string_view role) noexcept {
+    for (std::string_view r : {"opus", "sonnet", "haiku", "fable"})
+        if (role == r) return Provider::claude;
+    for (std::string_view r : {"astra", "sol", "luna"})
+        if (role == r) return Provider::codex;
+    return std::nullopt;
+}
+
+std::string role_map_path(const EnvList& env) {
+    const auto get = [&](const char* name) {
+        const auto value = process::env_get(env, name);
+        return value ? text::js_trim(*value) : std::string();
     };
-    return models;
+    if (auto explicit_path = get("LUDIARS_MODEL_ROLES_FILE"); !explicit_path.empty()) return explicit_path;
+#ifdef _WIN32
+    std::filesystem::path base = get("LOCALAPPDATA");
+    if (base.empty()) {
+        const auto home = get("USERPROFILE");
+        if (home.empty()) return "";
+        base = std::filesystem::path(home) / "AppData" / "Local";
+    }
+    return (base / "LUDIARS" / "model-roles.json").string();
+#else
+    std::filesystem::path base = get("XDG_STATE_HOME");
+    if (base.empty()) {
+        const auto home = get("HOME");
+        if (home.empty()) return "";
+        base = std::filesystem::path(home) / ".local" / "state";
+    }
+    return (base / "ludiars" / "model-roles.json").string();
+#endif
+}
+
+std::optional<std::string> role_map_model(const EnvList& env, Provider provider, std::string_view role) {
+    const auto path = role_map_path(env);
+    if (path.empty()) return std::nullopt;
+    const auto read = fs::read_file(path, 1u << 20);
+    if (read.status != fs::ReadStatus::ok) return std::nullopt;
+    try {
+        const Json map = json::parse(read.bytes);
+        if (!map.is_object() || map.value("schemaVersion", 0) != 1) return std::nullopt;
+        const auto roles = map.find("roles");
+        if (roles == map.end() || !roles->is_object()) return std::nullopt;
+        const auto by_provider = roles->find(provider_name(provider));
+        if (by_provider == roles->end() || !by_provider->is_object()) return std::nullopt;
+        const auto model = by_provider->find(std::string(role));
+        if (model == by_provider->end() || !model->is_string() || model->get<std::string>().empty()) return std::nullopt;
+        return model->get<std::string>();
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
 }
 
 namespace {
@@ -77,11 +122,6 @@ bool valid_model(std::string_view model) {
     return std::all_of(body.begin(), body.end(), [](char c) { return is_alnum(c) || c == '.' || c == '_' || c == ':' || c == '/' || c == '-'; });
 }
 
-const char* role_default(std::string_view role) {
-    for (const auto& entry : default_models())
-        if (role == entry.role) return entry.model;
-    return nullptr;
-}
 
 } // namespace
 
@@ -92,15 +132,22 @@ std::string resolve_model(const std::optional<std::string>& role_or_id, Provider
     if (suffix >= requested.size()) suffix = 0;
     const std::string role = requested.substr(0, requested.size() - suffix);
     const std::string context = requested.substr(requested.size() - suffix);
-    const char* known = role_default(role);
+    const auto owner = role_provider(role);
+    if (owner && *owner != provider)
+        throw OneShotError(provider == Provider::claude ? "Claude requires a Claude model" : "Codex requires a Codex model");
     std::string model = requested;
-    if (known != nullptr) {
+    bool cli_alias = false;
+    if (owner) {
         const auto override_value = process::env_get(env, "LUDIARS_ONESHOT_MODEL_" + ascii_upper(role));
-        const std::string base = override_value && !override_value->empty() ? *override_value : std::string(known);
+        std::string base;
+        if (override_value && !override_value->empty()) base = *override_value;
+        else if (auto mapped = role_map_model(env, provider, role)) base = *mapped;
+        else if (provider == Provider::claude && role != "fable") { base = role; cli_alias = true; }
+        else throw OneShotError("model_role_unresolved:" + role);
         model = base.find('[') == std::string::npos ? base + context : base;
     }
     if (!valid_model(model)) throw OneShotError("Invalid one-shot model");
-    if (provider == Provider::claude && !starts_with(model, "claude-")) throw OneShotError("Claude requires a Claude model");
+    if (provider == Provider::claude && !cli_alias && !starts_with(model, "claude-")) throw OneShotError("Claude requires a Claude model");
     // Codex accepts CLI-owned identifiers (codex-mini-latest); only Claude models are refused.
     if (provider == Provider::codex && starts_with(model, "claude-")) throw OneShotError("Codex requires a Codex model");
     return model;

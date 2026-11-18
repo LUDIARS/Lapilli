@@ -5,10 +5,15 @@ response parsing, streaming, timeout, cancellation, cost reporting and process o
 Use `spawnOneShot` in place of `node:child_process.spawn` for `claude -p` / `codex exec`.
 Arguments and stdio remain explicit; shell execution is disabled. There is no retry or API fallback.
 
-Pass a role (`opus`, `sonnet`, `haiku`, `fable`, `astra`, `sol`, `luna`) for a centrally
-maintained default. Explicit model IDs remain exact overrides. The role snapshot is from
-Concordia's active catalog on 2026-10-03; `LUDIARS_ONESHOT_MODEL_<ROLE>` provides an explicit
-deployment override. Changing the catalog does not automatically update this package.
+Pass a role (`opus`, `sonnet`, `haiku`, `fable`, `astra`, `sol`, `luna`) instead of a model ID.
+No model ID is pinned in this package: roles resolve through the role map Concordia writes
+(Concordia `spec/feature/model-role-map.md`) at `LUDIARS_MODEL_ROLES_FILE`, else
+`%LOCALAPPDATA%LUDIARSmodel-roles.json` (Windows) / `$XDG_STATE_HOME/ludiars/model-roles.json`
+(default `~/.local/state`). The file is re-read when it changes, so a catalog update reaches every
+consumer without a release. `LUDIARS_ONESHOT_MODEL_<ROLE>` is an explicit deployment override.
+Without a role map, Claude `opus` / `sonnet` / `haiku` pass through as Claude Code CLI aliases and
+every other role fails with `model_role_unresolved:<role>` (never a silent older model).
+Explicit model IDs remain exact overrides.
 Callers must use `resolveModel` when reporting the effective model, rather than the role.
 Context suffixes such as `opus[1m]` are retained when resolving a role; explicit
 provider model identifiers remain the CLI's responsibility. CommonJS consumers

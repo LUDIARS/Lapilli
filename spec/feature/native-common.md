@@ -70,7 +70,7 @@ Lorica commit `cab4f12086e30484f249d1b4aa479bf7cdec13a9` (`Lorica::boundary`, `l
 
 `packages/one-shot` (TS) の C++ 版。`subscription_environment` (API キー・クラウド選択子・
 `CLAUDECODE`・`CONCORDIA_HOOK`・`LICTOR_*` を除去)、`resolve_model` / `resolve_model_args`
-(役割名スナップショット 2026-10-03、`LUDIARS_ONESHOT_MODEL_<ROLE>` 上書き、`[1m]` 等の文脈接尾辞を保持、
+(役割名は Concordia の role map ファイル `role_map_path()` から解決しモデル ID を持たない。`LUDIARS_ONESHOT_MODEL_<ROLE>` 上書き、ファイルが無ければ Claude の opus/sonnet/haiku は CLI エイリアス・他は `model_role_unresolved:<役割>`、`[1m]` 等の文脈接尾辞を保持、
 Codex の CLI 固有 ID を許可)、`detect_provider`、`resolve_executable(name, lookup, Policy)`:
 
 - `native_only`: ネイティブ実行ファイルのみ。Windows は PATH 順 → 各ディレクトリ内で (1) `.exe`/`.com`

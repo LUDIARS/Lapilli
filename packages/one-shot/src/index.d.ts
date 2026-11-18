@@ -2,7 +2,10 @@ import { spawn, execFile, type SpawnOptions } from 'node:child_process';
 export const spawnOneShot: typeof spawn;
 export const execFileOneShot: typeof execFile;
 export function prepareOneShot(file: string, args: readonly string[], options?: SpawnOptions): { file: string; args: string[]; options: SpawnOptions };
-export const DEFAULT_MODELS: Readonly<Record<'opus' | 'sonnet' | 'haiku' | 'fable' | 'astra' | 'sol' | 'luna', string>>;
+/** Role names; ids come from Concordia's role map file (LUDIARS_MODEL_ROLES_FILE / %LOCALAPPDATA%\LUDIARS\model-roles.json). */
+export const MODEL_ROLES: Readonly<{ claude: readonly ('opus' | 'sonnet' | 'haiku' | 'fable')[]; codex: readonly ('astra' | 'sol' | 'luna')[] }>;
+export function roleMapPath(env?: NodeJS.ProcessEnv, platform?: NodeJS.Platform, home?: string): string;
+export function readRoleMap(env?: NodeJS.ProcessEnv): { claude?: Record<string, string>; codex?: Record<string, string> } | null;
 export function resolveModel(roleOrId: string | undefined, provider: 'claude' | 'codex', env?: NodeJS.ProcessEnv): string;
 export function subscriptionEnvironment(source?: NodeJS.ProcessEnv): NodeJS.ProcessEnv;
 export type OneShotProvider = 'claude' | 'codex';
