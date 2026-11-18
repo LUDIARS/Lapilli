@@ -309,7 +309,10 @@ std::uint16_t Server::listen() {
     const tcp::endpoint endpoint(address, options.port);
     auto& acceptor = impl_->acceptor;
     acceptor.open(endpoint.protocol(), error);
+#ifndef _WIN32
+    // Winsock SO_REUSEADDR allows a second listener to bind an occupied endpoint.
     if (!error) acceptor.set_option(asio::socket_base::reuse_address(true), error);
+#endif
     if (!error) acceptor.bind(endpoint, error);
     if (!error) acceptor.listen(asio::socket_base::max_listen_connections, error);
     if (error) {

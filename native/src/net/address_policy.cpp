@@ -73,7 +73,11 @@ bool is_public_address(std::string_view address) {
     boost::system::error_code error;
     const auto parsed = boost::asio::ip::make_address(text, error);
     if (error) return false;
-    if (parsed.is_v4()) return public_v4(parsed.to_v4().to_uint());
+    if (parsed.is_v4()) {
+        // Winsock accepts non-canonical IPv4 spellings that inet_pton rejects on POSIX.
+        const auto v4 = parsed.to_v4();
+        return v4.to_string() == text && public_v4(v4.to_uint());
+    }
     const auto v6 = parsed.to_v6();
     if (v6.scope_id() != 0) return false; // zone ids only exist on link-local scopes
     return public_v6(v6.to_bytes());

@@ -13,8 +13,11 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 
+#include <openssl/ssl.h>
+
 #include <atomic>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -248,6 +251,20 @@ LAPILLI_TEST("timeouts, refused connections, bad URLs and cancellation; errors n
     LAPILLI_CHECK_THROWS_AS(fetch(other), FetchError);
 }
 
+LAPILLI_TEST("client TLS requires TLS 1.2, verifies peers and loads platform trust") {
+    std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)> context(SSL_CTX_new(TLS_client_method()), SSL_CTX_free);
+    LAPILLI_CHECK(context != nullptr);
+    const int imported = configure_client_tls(context.get());
+    LAPILLI_CHECK_EQ(SSL_CTX_get_min_proto_version(context.get()), TLS1_2_VERSION);
+    LAPILLI_CHECK((SSL_CTX_get_verify_mode(context.get()) & SSL_VERIFY_PEER) != 0);
+#ifdef _WIN32
+    LAPILLI_CHECK(imported > 0); // Hosted Windows has a populated system ROOT store.
+    LAPILLI_CHECK(sk_X509_OBJECT_num(X509_STORE_get0_objects(SSL_CTX_get_cert_store(context.get()))) > 0);
+#else
+    LAPILLI_CHECK_EQ(imported, 0);
+#endif
+}
+
 LAPILLI_TEST("https verifies the peer: a plain-text server fails the TLS handshake") {
     LocalServer server([](const auto&, tcp::socket& socket) { respond(socket, bhttp::status::ok, "plain"); });
     ClientRequest request;
@@ -308,7 +325,7 @@ LAPILLI_TEST("the address policy table") {
     for (const char* blocked : {"127.0.0.1", "10.1.2.3", "172.16.0.1", "192.168.1.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "255.255.255.255",
                                 "224.0.0.1", "198.18.0.1", "::1", "::", "fc00::1", "fe80::1", "ff02::1", "::ffff:127.0.0.1", "64:ff9b::a00:1",
                                 "2002:7f00:1::", "2001:db8::1", "[::1]", "not-an-ip", "1.2.3"})
-        LAPILLI_CHECK(!is_public_address(blocked));
+        if (is_public_address(blocked)) throw lapilli::test::Failure(std::string("expected blocked address: ") + blocked);
     for (const char* allowed : {"8.8.8.8", "1.1.1.1", "2606:4700:4700::1111", "::ffff:8.8.8.8", "64:ff9b::808:808", "2002:808:808::"})
-        LAPILLI_CHECK(is_public_address(allowed));
+        if (!is_public_address(allowed)) throw lapilli::test::Failure(std::string("expected public address: ") + allowed);
 }

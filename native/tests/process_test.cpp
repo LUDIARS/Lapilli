@@ -9,7 +9,9 @@
 #include <map>
 #include <thread>
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <csignal>
 #include <unistd.h>
 #endif
@@ -160,6 +162,38 @@ LAPILLI_TEST("spawn failures are reported, not thrown") {
     LAPILLI_CHECK(run(spec_of({"printf", std::string("a\0b", 3)})).spawn_error->kind == SpawnErrorKind::invalid_argument);
     LAPILLI_CHECK(find_executable("sh").has_value());
     LAPILLI_CHECK(!find_executable("lapilli-no-such-program-xyz").has_value());
+}
+
+#else
+
+LAPILLI_TEST("CreateProcessW preserves Unicode argv, pipes and exit status") {
+    auto spec = spec_of({LAPILLI_PROCESS_FIXTURE, "echo", "空 白", "", R"(a "quote" and tail\)"});
+    spec.stdin_data = "bytes from the parent";
+    spec.timeout = std::chrono::seconds(10);
+    const auto result = run(spec);
+    LAPILLI_CHECK(!result.spawn_error && !result.timed_out);
+    LAPILLI_CHECK_EQ(result.exit_code, 23);
+    LAPILLI_CHECK_EQ(result.out, *spec.stdin_data);
+    LAPILLI_CHECK_EQ(result.err, std::string("stderr"));
+}
+
+LAPILLI_TEST("the Job Object kills a grandchild holding the pipes after its parent exits") {
+    auto spec = spec_of({LAPILLI_PROCESS_FIXTURE, "spawn"});
+    spec.timeout = std::chrono::seconds(3);
+    const auto result = run(spec);
+    LAPILLI_CHECK(!result.spawn_error && result.timed_out);
+    LAPILLI_CHECK_EQ(result.exit_code, -1);
+    LAPILLI_CHECK(result.duration < std::chrono::seconds(15));
+    const auto pid = std::stoul(result.out);
+    LAPILLI_CHECK(pid > 0);
+    HANDLE descendant = OpenProcess(SYNCHRONIZE, FALSE, pid);
+    if (descendant) {
+        const auto state = WaitForSingleObject(descendant, 1000);
+        CloseHandle(descendant);
+        LAPILLI_CHECK_EQ(state, WAIT_OBJECT_0);
+    } else {
+        LAPILLI_CHECK_EQ(GetLastError(), ERROR_INVALID_PARAMETER); // PID no longer exists
+    }
 }
 
 #endif
